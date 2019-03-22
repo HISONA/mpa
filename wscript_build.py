@@ -282,7 +282,7 @@ def build(ctx):
         if build_shared:
             waftoolsdir = os.path.join(os.path.dirname(__file__), "waftools")
             ctx.load("syms", tooldir=waftoolsdir)
-        vre = '#define MPA_CLIENT_API_VERSION MPA_MAKE_VERSION\((.*), (.*)\)'
+        vre = '#define MPV_CLIENT_API_VERSION MPV_MAKE_VERSION\((.*), (.*)\)'
         libmpa_header = ctx.path.find_node("libmpa/client.h").read()
         major, minor = re.search(vre, libmpa_header).groups()
         libversion = major + '.' + minor + '.0'
