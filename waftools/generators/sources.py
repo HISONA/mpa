@@ -51,7 +51,7 @@ def ebml_definitions(self):
 
 def __zshcomp__(ctx, **kwargs):
     ctx(
-        rule   = __zshcomp_cmd__(ctx, ctx.bldnode.abspath() + '/mpv'),
+        rule   = __zshcomp_cmd__(ctx, ctx.bldnode.abspath() + '/mpa'),
         after = ("c", "cprogram",),
         name   = os.path.basename(kwargs['target']),
         **kwargs

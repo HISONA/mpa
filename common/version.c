@@ -22,6 +22,6 @@
 #define BUILDDATE "UNKNOWN"
 #endif
 
-const char mpv_version[]  = "mpv " VERSION;
-const char mpv_builddate[] = BUILDDATE;
-const char mpv_copyright[] = MPVCOPYRIGHT;
+const char mpa_version[]  = "mpa " VERSION;
+const char mpa_builddate[] = BUILDDATE;
+const char mpa_copyright[] = MPACOPYRIGHT;

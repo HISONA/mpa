@@ -24,12 +24,12 @@ def __get_features_string__(ctx):
     stuff.sort()
     return " ".join(stuff)
 
-def __add_mpv_defines__(ctx):
+def __add_mpa_defines__(ctx):
     from sys import argv
     ctx.define("CONFIGURATION", " ".join(argv))
-    ctx.define("MPV_CONFDIR", ctx.env.CONFLOADDIR)
+    ctx.define("MPA_CONFDIR", ctx.env.CONFLOADDIR)
     ctx.define("FULLCONFIG", __escape_c_string(__get_features_string__(ctx)))
 
 def configure(ctx):
-    __add_mpv_defines__(ctx)
+    __add_mpa_defines__(ctx)
     __write_config_h__(ctx)

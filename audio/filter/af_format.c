@@ -21,6 +21,7 @@
 #include "filters/filter_internal.h"
 #include "filters/user_filters.h"
 #include "options/m_option.h"
+#include "common/msg.h"
 
 struct f_opts {
     int in_format;

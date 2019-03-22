@@ -25,12 +25,11 @@
 #include <libavutil/md5.h>
 
 #include "config.h"
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 
 #include "osdep/io.h"
 
 #include "common/global.h"
-#include "common/encode.h"
 #include "common/msg.h"
 #include "misc/ctype.h"
 #include "options/path.h"
@@ -59,27 +58,10 @@ static void load_all_cfgfiles(struct MPContext *mpctx, char *section,
 
 void mp_parse_cfgfiles(struct MPContext *mpctx)
 {
-    struct MPOpts *opts = mpctx->opts;
-
     mp_mk_config_dir(mpctx->global, "");
 
-    m_config_t *conf = mpctx->mconfig;
     char *section = NULL;
-    bool encoding = opts->encode_opts &&
-        opts->encode_opts->file && opts->encode_opts->file[0];
-    // In encoding mode, we don't want to apply normal config options.
-    // So we "divert" normal options into a separate section, and the diverted
-    // section is never used - unless maybe it's explicitly referenced from an
-    // encoding profile.
-    if (encoding)
-        section = "playback-default";
-
-    load_all_cfgfiles(mpctx, NULL, "encoding-profiles.conf");
-
-    load_all_cfgfiles(mpctx, section, "mpv.conf|config");
-
-    if (encoding)
-        m_config_set_profile(conf, SECT_ENCODE, 0);
+    load_all_cfgfiles(mpctx, section, "mpa.conf|config");
 }
 
 static int try_load_config(struct MPContext *mpctx, const char *file, int flags,
@@ -174,14 +156,12 @@ static char *mp_get_playback_resume_config_filename(struct MPContext *mpctx,
             realpath = mp_path_join(tmp, cwd, fname);
         }
     }
-    if (bstr_startswith0(bfname, "dvd://") && opts->dvd_opts && opts->dvd_opts->device)
-        realpath = talloc_asprintf(tmp, "%s - %s", realpath, opts->dvd_opts->device);
-    if ((bstr_startswith0(bfname, "br://") || bstr_startswith0(bfname, "bd://") ||
-         bstr_startswith0(bfname, "bluray://")) && opts->bluray_device)
-        realpath = talloc_asprintf(tmp, "%s - %s", realpath, opts->bluray_device);
+
     uint8_t md5[16];
+
     av_md5_sum(md5, realpath, strlen(realpath));
     char *conf = talloc_strdup(tmp, "");
+
     for (int i = 0; i < 16; i++)
         conf = talloc_asprintf_append(conf, "%02X", md5[i]);
 

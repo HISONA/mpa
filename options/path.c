@@ -34,15 +34,12 @@
 #include "common/msg.h"
 #include "options/options.h"
 #include "options/path.h"
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 #include "osdep/io.h"
 #include "osdep/path.h"
 
 // In order of decreasing priority: the first has highest priority.
 static const mp_get_platform_path_cb path_resolvers[] = {
-#if HAVE_COCOA
-    mp_get_platform_path_osx,
-#endif
 #if !defined(_WIN32) || defined(__CYGWIN__)
     mp_get_platform_path_unix,
 #endif

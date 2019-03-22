@@ -33,10 +33,10 @@
 #include <libavutil/common.h>
 #include <libavutil/avstring.h>
 
-#include "libmpv/client.h"
+#include "libmpa/client.h"
 #include "player/client.h"
 
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 #include "common/common.h"
 #include "common/msg.h"
 #include "common/msg_control.h"
@@ -2184,56 +2184,6 @@ const m_option_type_t m_option_type_size_box = {
     .size  = sizeof(struct m_geometry),
     .parse = parse_size_box,
     .print = print_geometry,
-    .copy  = copy_opt,
-};
-
-
-#include "video/img_format.h"
-
-static int parse_imgfmt(struct mp_log *log, const m_option_t *opt,
-                        struct bstr name, struct bstr param, void *dst)
-{
-    bool accept_no = opt->min < 0;
-
-    if (param.len == 0)
-        return M_OPT_MISSING_PARAM;
-
-    if (!bstrcmp0(param, "help")) {
-        mp_info(log, "Available formats:");
-        char **list = mp_imgfmt_name_list();
-        for (int i = 0; list[i]; i++)
-            mp_info(log, " %s", list[i]);
-        if (accept_no)
-            mp_info(log, " no");
-        mp_info(log, "\n");
-        talloc_free(list);
-        return M_OPT_EXIT;
-    }
-
-    unsigned int fmt = mp_imgfmt_from_name(param);
-    if (!fmt && !(accept_no && bstr_equals0(param, "no"))) {
-        mp_err(log, "Option %.*s: unknown format name: '%.*s'\n",
-               BSTR_P(name), BSTR_P(param));
-        return M_OPT_INVALID;
-    }
-
-    if (dst)
-        *((int *)dst) = fmt;
-
-    return 1;
-}
-
-static char *print_imgfmt(const m_option_t *opt, const void *val)
-{
-    int fmt = *(int *)val;
-    return talloc_strdup(NULL, fmt ? mp_imgfmt_to_name(fmt) : "no");
-}
-
-const m_option_type_t m_option_type_imgfmt = {
-    .name  = "Image format",
-    .size  = sizeof(int),
-    .parse = parse_imgfmt,
-    .print = print_imgfmt,
     .copy  = copy_opt,
 };
 

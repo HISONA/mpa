@@ -26,7 +26,7 @@
 #include <unistd.h>
 #include <rsound.h>
 
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 
 #include "options/m_option.h"
 #include "osdep/timer.h"

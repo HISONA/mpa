@@ -35,9 +35,6 @@
 #include "stheader.h"
 #include "codec_tags.h"
 
-#include "video/fmt-conversion.h"
-#include "video/img_format.h"
-
 #include "osdep/endian.h"
 
 struct demux_rawaudio_opts {
@@ -92,38 +89,6 @@ const struct m_sub_options demux_rawaudio_conf = {
 
 #undef PCM
 #undef NE
-
-struct demux_rawvideo_opts {
-    int vformat;
-    int mp_format;
-    char *codec;
-    int width;
-    int height;
-    float fps;
-    int imgsize;
-};
-
-#undef OPT_BASE_STRUCT
-#define OPT_BASE_STRUCT struct demux_rawvideo_opts
-const struct m_sub_options demux_rawvideo_conf = {
-    .opts = (const m_option_t[]) {
-        OPT_INTRANGE("w", width, 0, 1, 8192),
-        OPT_INTRANGE("h", height, 0, 1, 8192),
-        OPT_GENERAL(int, "format", vformat, 0, .type = &m_option_type_fourcc),
-        OPT_IMAGEFORMAT("mp-format", mp_format, 0),
-        OPT_STRING("codec", codec, 0),
-        OPT_FLOATRANGE("fps", fps, 0, 0.001, 1000),
-        OPT_INTRANGE("size", imgsize, 0, 1, 8192 * 8192 * 4),
-        {0}
-    },
-    .size = sizeof(struct demux_rawvideo_opts),
-    .defaults = &(const struct demux_rawvideo_opts){
-        .vformat = MKTAG('I', '4', '2', '0'),
-        .width = 1280,
-        .height = 720,
-        .fps = 25,
-    },
-};
 
 struct priv {
     struct sh_stream *sh;
@@ -185,90 +150,6 @@ static int demux_rawaudio_open(demuxer_t *demuxer, enum demux_check check)
     return generic_open(demuxer);
 }
 
-static int demux_rawvideo_open(demuxer_t *demuxer, enum demux_check check)
-{
-    struct demux_rawvideo_opts *opts =
-        mp_get_config_group(demuxer, demuxer->global, &demux_rawvideo_conf);
-
-    if (check != DEMUX_CHECK_REQUEST && check != DEMUX_CHECK_FORCE)
-        return -1;
-
-    int width = opts->width;
-    int height = opts->height;
-
-    if (!width || !height) {
-        MP_ERR(demuxer, "rawvideo: width or height not specified!\n");
-        return -1;
-    }
-
-    const char *decoder = "rawvideo";
-    int imgfmt = opts->vformat;
-    int imgsize = opts->imgsize;
-    int mp_imgfmt = 0;
-    if (opts->mp_format && !IMGFMT_IS_HWACCEL(opts->mp_format)) {
-        mp_imgfmt = opts->mp_format;
-        if (!imgsize) {
-            struct mp_imgfmt_desc desc = mp_imgfmt_get_desc(opts->mp_format);
-            for (int p = 0; p < desc.num_planes; p++) {
-                imgsize += ((width >> desc.xs[p]) * (height >> desc.ys[p]) *
-                            desc.bpp[p] + 7) / 8;
-            }
-        }
-    } else if (opts->codec && opts->codec[0])
-        decoder = talloc_strdup(demuxer, opts->codec);
-
-    if (!imgsize) {
-        int bpp = 0;
-        switch (imgfmt) {
-        case MKTAG('Y', 'V', '1', '2'):
-        case MKTAG('I', '4', '2', '0'):
-        case MKTAG('I', 'Y', 'U', 'V'):
-            bpp = 12;
-            break;
-        case MKTAG('U', 'Y', 'V', 'Y'):
-        case MKTAG('Y', 'U', 'Y', '2'):
-            bpp = 16;
-            break;
-        }
-        if (!bpp) {
-            MP_ERR(demuxer, "rawvideo: img size not specified and unknown format!\n");
-            return -1;
-        }
-        imgsize = width * height * bpp / 8;
-    }
-
-    struct sh_stream *sh = demux_alloc_sh_stream(STREAM_VIDEO);
-    struct mp_codec_params *c = sh->codec;
-    c->codec = decoder;
-    c->codec_tag = imgfmt;
-    c->fps = opts->fps;
-    c->reliable_fps = true;
-    c->disp_w = width;
-    c->disp_h = height;
-    if (mp_imgfmt) {
-        c->lav_codecpar = avcodec_parameters_alloc();
-        if (!c->lav_codecpar)
-            abort();
-        c->lav_codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
-        c->lav_codecpar->codec_id = mp_codec_to_av_codec_id(decoder);
-        c->lav_codecpar->format = imgfmt2pixfmt(mp_imgfmt);
-        c->lav_codecpar->width = width;
-        c->lav_codecpar->height = height;
-    }
-    demux_add_sh_stream(demuxer, sh);
-
-    struct priv *p = talloc_ptrtype(demuxer, p);
-    demuxer->priv = p;
-    *p = (struct priv) {
-        .sh = sh,
-        .frame_size = imgsize,
-        .frame_rate = c->fps,
-        .read_frames = 1,
-    };
-
-    return generic_open(demuxer);
-}
-
 static int raw_fill_buffer(demuxer_t *demuxer)
 {
     struct priv *p = demuxer->priv;
@@ -316,10 +197,3 @@ const demuxer_desc_t demuxer_desc_rawaudio = {
     .seek = raw_seek,
 };
 
-const demuxer_desc_t demuxer_desc_rawvideo = {
-    .name = "rawvideo",
-    .desc = "Uncompressed video",
-    .open = demux_rawvideo_open,
-    .fill_buffer = raw_fill_buffer,
-    .seek = raw_seek,
-};

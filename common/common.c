@@ -22,7 +22,7 @@
 #include <libavutil/common.h>
 #include <libavutil/error.h>
 
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 #include "misc/bstr.h"
 #include "misc/ctype.h"
 #include "common/common.h"
@@ -91,39 +91,6 @@ error:
 char *mp_format_time(double time, bool fractions)
 {
     return mp_format_time_fmt(fractions ? "%H:%M:%S.%T" : "%H:%M:%S", time);
-}
-
-// Set rc to the union of rc and rc2
-void mp_rect_union(struct mp_rect *rc, const struct mp_rect *rc2)
-{
-    rc->x0 = FFMIN(rc->x0, rc2->x0);
-    rc->y0 = FFMIN(rc->y0, rc2->y0);
-    rc->x1 = FFMAX(rc->x1, rc2->x1);
-    rc->y1 = FFMAX(rc->y1, rc2->y1);
-}
-
-// Returns whether or not a point is contained by rc
-bool mp_rect_contains(struct mp_rect *rc, int x, int y)
-{
-    return rc->x0 <= x && x < rc->x1 && rc->y0 <= y && y < rc->y1;
-}
-
-// Set rc to the intersection of rc and src.
-// Return false if the result is empty.
-bool mp_rect_intersection(struct mp_rect *rc, const struct mp_rect *rc2)
-{
-    rc->x0 = FFMAX(rc->x0, rc2->x0);
-    rc->y0 = FFMAX(rc->y0, rc2->y0);
-    rc->x1 = FFMIN(rc->x1, rc2->x1);
-    rc->y1 = FFMIN(rc->y1, rc2->y1);
-
-    return rc->x1 > rc->x0 && rc->y1 > rc->y0;
-}
-
-bool mp_rect_equals(struct mp_rect *rc1, struct mp_rect *rc2)
-{
-    return rc1->x0 == rc2->x0 && rc1->y0 == rc2->y0 &&
-           rc1->x1 == rc2->x1 && rc1->y1 == rc2->y1;
 }
 
 // This works like snprintf(), except that it starts writing the first output

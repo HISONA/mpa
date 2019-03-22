@@ -25,7 +25,7 @@
 #include <locale.h>
 
 #include "config.h"
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 
 #include "misc/dispatch.h"
 #include "misc/thread_pool.h"
@@ -36,7 +36,6 @@
 
 #include "common/av_log.h"
 #include "common/codecs.h"
-#include "common/encode.h"
 #include "options/m_config.h"
 #include "options/m_option.h"
 #include "options/m_property.h"
@@ -55,21 +54,14 @@
 #include "audio/out/ao.h"
 #include "demux/demux.h"
 #include "misc/thread_tools.h"
-#include "sub/osd.h"
-#include "video/out/vo.h"
 
 #include "core.h"
 #include "client.h"
 #include "command.h"
-#include "screenshot.h"
 
 static const char def_config[] =
 #include "player/builtin_conf.inc"
 ;
-
-#if HAVE_COCOA
-#include "osdep/macosx_events.h"
-#endif
 
 #ifndef FULLCONFIG
 #define FULLCONFIG "(missing)\n"
@@ -90,10 +82,6 @@ const char mp_help_text[] =
 "\n"
 "Basic options:\n"
 " --start=<time>    seek to given (percent, seconds, or hh:mm:ss) position\n"
-" --no-audio        do not play sound\n"
-" --no-video        do not play video\n"
-" --fs              fullscreen playback\n"
-" --sub-file=<file> specify subtitle file to use\n"
 " --playlist=<file> specify playlist file\n"
 "\n"
 " --list-options    list all mpv options\n"
@@ -142,7 +130,7 @@ void mp_print_version(struct mp_log *log, int always)
 {
     int v = always ? MSGL_INFO : MSGL_V;
     mp_msg(log, v, "%s %s\n built on %s\n",
-           mpv_version, mpv_copyright, mpv_builddate);
+           mpa_version, mpa_copyright, mpa_builddate);
     print_libav_versions(log, v);
     mp_msg(log, v, "\n");
     // Only in verbose mode.
@@ -163,21 +151,10 @@ void mp_destroy(struct MPContext *mpctx)
     mpctx->ipc_ctx = NULL;
 
     uninit_audio_out(mpctx);
-    uninit_video_out(mpctx);
-
-    // If it's still set here, it's an error.
-    encode_lavc_free(mpctx->encode_lavc_ctx);
-    mpctx->encode_lavc_ctx = NULL;
 
     command_uninit(mpctx);
 
     mp_clients_destroy(mpctx);
-
-    osd_free(mpctx->osd);
-
-#if HAVE_COCOA
-    cocoa_set_input_context(NULL);
-#endif
 
     if (cas_terminal_owner(mpctx, mpctx)) {
         terminal_uninit();
@@ -209,12 +186,6 @@ static bool handle_help_options(struct MPContext *mpctx)
         MP_INFO(mpctx, "Choices: ac3,dts-hd,dts (and possibly more)\n");
         return true;
     }
-    if (opts->video_decoders && strcmp(opts->video_decoders, "help") == 0) {
-        struct mp_decoder_list *list = video_decoder_list();
-        mp_print_decoders(log, MSGL_INFO, "Video decoders:", list);
-        talloc_free(list);
-        return true;
-    }
     if ((opts->demuxer_name && strcmp(opts->demuxer_name, "help") == 0) ||
         (opts->audio_demuxer_name && strcmp(opts->audio_demuxer_name, "help") == 0) ||
         (opts->sub_demuxer_name && strcmp(opts->sub_demuxer_name, "help") == 0)) {
@@ -232,8 +203,7 @@ static bool handle_help_options(struct MPContext *mpctx)
         property_print_help(mpctx);
         return true;
     }
-    if (encode_lavc_showhelp(log, opts->encode_opts))
-        return true;
+
     return false;
 }
 
@@ -274,7 +244,6 @@ struct MPContext *mp_create(void)
     *mpctx = (struct MPContext){
         .last_chapter = -2,
         .term_osd_contents = talloc_strdup(mpctx, ""),
-        .osd_progbar = { .type = -1 },
         .playlist = talloc_struct(mpctx, struct playlist, {0}),
         .dispatch = mp_dispatch_create(mpctx),
         .playback_abort = mp_cancel_new(mpctx),
@@ -304,19 +273,20 @@ struct MPContext *mp_create(void)
     m_config_create_shadow(mpctx->mconfig);
 
     mpctx->input = mp_input_init(mpctx->global, mp_wakeup_core_cb, mpctx);
-    screenshot_init(mpctx);
+
     command_init(mpctx);
+
     init_libav(mpctx->global);
+
     mp_clients_init(mpctx);
-    mpctx->osd = osd_create(mpctx->global);
 
-#if HAVE_COCOA
-    cocoa_set_input_context(mpctx->input);
-#endif
-
+#if 0
     char *verbose_env = getenv("MPV_VERBOSE");
     if (verbose_env)
         mpctx->opts->verbose = atoi(verbose_env);
+#else
+    mpctx->opts->verbose = 1;
+#endif
 
     return mpctx;
 }
@@ -403,33 +373,6 @@ int mp_initialize(struct MPContext *mpctx, char **options)
         return 1;
     }
 
-    MP_STATS(mpctx, "start init");
-
-#if HAVE_COCOA
-    mpv_handle *ctx = mp_new_client(mpctx->clients, "osx");
-    cocoa_set_mpv_handle(ctx);
-#endif
-
-    if (opts->encode_opts->file && opts->encode_opts->file[0]) {
-        mpctx->encode_lavc_ctx = encode_lavc_init(mpctx->global);
-        if(!mpctx->encode_lavc_ctx) {
-            MP_INFO(mpctx, "Encoding initialization failed.\n");
-            return -1;
-        }
-        m_config_set_profile(mpctx->mconfig, "encoding", 0);
-        mp_input_enable_section(mpctx->input, "encode", MP_INPUT_EXCLUSIVE);
-    }
-
-#if !HAVE_LIBASS
-    MP_WARN(mpctx, "Compiled without libass.\n");
-    MP_WARN(mpctx, "There will be no OSD and no text subtitles.\n");
-#endif
-
-    mp_load_scripts(mpctx);
-
-    if (opts->force_vo == 2 && handle_force_window(mpctx, false) < 0)
-        return -1;
-
     MP_STATS(mpctx, "end init");
 
     return 0;
@@ -480,5 +423,6 @@ int mpv_main(int argc, char *argv[])
         rc = mpctx->quit_custom_rc;
 
     mp_destroy(mpctx);
+
     return rc;
 }

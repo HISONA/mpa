@@ -32,7 +32,7 @@
 #include "cookies.h"
 
 #include "misc/bstr.h"
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 
 #define OPT_BASE_STRUCT struct stream_lavf_params
 struct stream_lavf_params {
@@ -68,7 +68,7 @@ const struct m_sub_options stream_lavf_conf = {
     },
     .size = sizeof(struct stream_lavf_params),
     .defaults = &(const struct stream_lavf_params){
-        .useragent = (char *)mpv_version,
+        .useragent = (char *)mpa_version,
     },
 };
 

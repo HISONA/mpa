@@ -40,10 +40,7 @@
 
 #include "audio/format.h"
 #include "audio/aframe.h"
-#include "video/mp_image.h"
 #include "audio/fmt-conversion.h"
-#include "video/fmt-conversion.h"
-#include "video/hwdec.h"
 
 #include "f_lavfi.h"
 #include "filter.h"
@@ -337,17 +334,8 @@ static bool is_aformat_ok(struct mp_aframe *a, struct mp_aframe *b)
            mp_aframe_get_rate(a) == mp_aframe_get_rate(b) &&
            mp_aframe_get_format(a) == mp_aframe_get_format(b);
 }
-static bool is_vformat_ok(struct mp_image *a, struct mp_image *b)
-{
-    return a->imgfmt == b->imgfmt &&
-           a->w == b->w && a->h && b->h &&
-           a->params.p_w == b->params.p_w && a->params.p_h == b->params.p_h &&
-           a->nominal_fps == b->nominal_fps;
-}
 static bool is_format_ok(struct mp_frame a, struct mp_frame b)
 {
-    if (a.type == b.type && a.type == MP_FRAME_VIDEO)
-        return is_vformat_ok(a.data, b.data);
     if (a.type == b.type && a.type == MP_FRAME_AUDIO)
         return is_aformat_ok(a.data, b.data);
     return false;
@@ -395,9 +383,8 @@ static bool init_pads(struct lavfi *c)
         const AVFilter *dst_filter = NULL;
         if (pad->type == MP_FRAME_AUDIO) {
             dst_filter = avfilter_get_by_name("abuffersink");
-        } else if (pad->type == MP_FRAME_VIDEO) {
-            dst_filter = avfilter_get_by_name("buffersink");
-        } else {
+        }
+        else {
             assert(0);
         }
 
@@ -434,8 +421,6 @@ static bool init_pads(struct lavfi *c)
             if (!pad->in_fmt.type)
                 goto error;
 
-            if (pad->in_fmt.type == MP_FRAME_VIDEO)
-                mp_image_unref_data(pad->in_fmt.data);
             if (pad->in_fmt.type == MP_FRAME_AUDIO)
                 mp_aframe_unref_data(pad->in_fmt.data);
         }
@@ -449,12 +434,6 @@ static bool init_pads(struct lavfi *c)
                 mp_aframe_set_chmap(fmt, &(struct mp_chmap)MP_CHMAP_INIT_STEREO);
                 mp_aframe_set_rate(fmt, 48000);
                 pad->in_fmt = (struct mp_frame){MP_FRAME_AUDIO, fmt};
-            }
-            if (pad->type == MP_FRAME_VIDEO) {
-                struct mp_image *fmt = talloc_zero(NULL, struct mp_image);
-                mp_image_setfmt(fmt, IMGFMT_420P);
-                mp_image_set_size(fmt, 64, 64);
-                pad->in_fmt = (struct mp_frame){MP_FRAME_VIDEO, fmt};
             }
         }
 
@@ -477,16 +456,6 @@ static bool init_pads(struct lavfi *c)
             params->channel_layout = mp_chmap_to_lavc(&chmap);
             pad->timebase = (AVRational){1, mp_aframe_get_rate(fmt)};
             filter_name = "abuffer";
-        } else if (pad->type == MP_FRAME_VIDEO) {
-            struct mp_image *fmt = pad->in_fmt.data;
-            params->format = imgfmt2pixfmt(fmt->imgfmt);
-            params->width = fmt->w;
-            params->height = fmt->h;
-            params->sample_aspect_ratio.num = fmt->params.p_w;
-            params->sample_aspect_ratio.den = fmt->params.p_h;
-            params->hw_frames_ctx = fmt->hwctx;
-            params->frame_rate = av_d2q(fmt->nominal_fps, 1000000);
-            filter_name = "buffer";
         } else {
             assert(0);
         }
@@ -546,16 +515,6 @@ static void init_graph(struct lavfi *c)
         precreate_graph(c, false);
 
     if (init_pads(c)) {
-        struct mp_stream_info *info = mp_filter_find_stream_info(c->f);
-        if (info && info->hwdec_devs) {
-            struct mp_hwdec_ctx *hwdec = hwdec_devices_get_first(info->hwdec_devs);
-            for (int n = 0; n < c->graph->nb_filters; n++) {
-                AVFilterContext *filter = c->graph->filters[n];
-                if (hwdec && hwdec->av_device_ref)
-                    filter->hw_device_ctx = av_buffer_ref(hwdec->av_device_ref);
-            }
-        }
-
         // And here the actual libavfilter initialization happens.
         if (avfilter_graph_config(c->graph, NULL) < 0) {
             MP_FATAL(c, "failed to configure the filter graph\n");
@@ -682,11 +641,6 @@ static bool read_output_pads(struct lavfi *c)
                 double out_time = avframe->pts * av_q2d(pad->timebase);
                 mp_aframe_set_pts(aframe, c->in_pts +
                     (c->in_pts != MP_NOPTS_VALUE ? (out_time - in_time) : 0));
-            }
-            if (frame.type == MP_FRAME_VIDEO) {
-                struct mp_image *vframe = frame.data;
-                vframe->nominal_fps =
-                    av_q2d(av_buffersink_get_frame_rate(pad->buffer));
             }
             av_frame_unref(c->tmp_frame);
             if (frame.type) {

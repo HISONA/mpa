@@ -28,9 +28,9 @@
 
 #include <libavutil/common.h>
 
-#include "libmpv/client.h"
+#include "libmpa/client.h"
 
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 #include "m_option.h"
 #include "m_property.h"
 #include "common/msg.h"
@@ -310,8 +310,7 @@ char *m_properties_expand_string(const struct m_property *prop_list,
             bool have_fallback = bstr_eatstart0(&str, ":");
 
             if (!skip) {
-                skip = expand_property(prop_list, &ret, &ret_len, name,
-                                       have_fallback, ctx);
+                skip = expand_property(prop_list, &ret, &ret_len, name, have_fallback, ctx);
                 if (skip)
                     skip_level = level;
             }

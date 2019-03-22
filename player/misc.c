@@ -21,7 +21,7 @@
 #include <assert.h>
 
 #include "config.h"
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 
 #include "osdep/io.h"
 #include "osdep/timer.h"
@@ -33,14 +33,12 @@
 #include "options/m_config.h"
 #include "common/common.h"
 #include "common/global.h"
-#include "common/encode.h"
 #include "common/playlist.h"
 #include "input/input.h"
 
 #include "audio/out/ao.h"
 #include "demux/demux.h"
 #include "stream/stream.h"
-#include "video/out/vo.h"
 
 #include "core.h"
 #include "command.h"
@@ -181,8 +179,6 @@ double get_track_seek_offset(struct MPContext *mpctx, struct track *track)
     if (track->selected) {
         if (track->type == STREAM_AUDIO)
             return -opts->audio_delay;
-        if (track->type == STREAM_SUB)
-            return -opts->subs_rend->sub_delay;
     }
     return 0;
 }
@@ -203,78 +199,23 @@ void issue_refresh_seek(struct MPContext *mpctx, enum seek_precision min_prec)
     queue_seek(mpctx, MPSEEK_ABSOLUTE, get_current_time(mpctx), min_prec, 0);
 }
 
-void update_vo_playback_state(struct MPContext *mpctx)
-{
-    if (mpctx->video_out && mpctx->video_out->config_ok) {
-        struct voctrl_playback_state oldstate = mpctx->vo_playback_state;
-        struct voctrl_playback_state newstate = {
-            .taskbar_progress = mpctx->opts->vo->taskbar_progress,
-            .playing = mpctx->playing,
-            .paused = mpctx->paused,
-            .percent_pos = get_percent_pos(mpctx),
-        };
-
-        if (oldstate.taskbar_progress != newstate.taskbar_progress ||
-            oldstate.playing != newstate.playing ||
-            oldstate.paused != newstate.paused ||
-            oldstate.percent_pos != newstate.percent_pos)
-        {
-            // Don't update progress bar if it was and still is hidden
-            if ((oldstate.playing && oldstate.taskbar_progress) ||
-                (newstate.playing && newstate.taskbar_progress))
-            {
-                vo_control_async(mpctx->video_out,
-                                 VOCTRL_UPDATE_PLAYBACK_STATE, &newstate);
-            }
-            mpctx->vo_playback_state = newstate;
-        }
-    } else {
-        mpctx->vo_playback_state = (struct voctrl_playback_state){ 0 };
-    }
-}
-
-void update_window_title(struct MPContext *mpctx, bool force)
-{
-    if (!mpctx->video_out && !mpctx->ao) {
-        talloc_free(mpctx->last_window_title);
-        mpctx->last_window_title = NULL;
-        return;
-    }
-    char *title = mp_property_expand_string(mpctx, mpctx->opts->wintitle);
-    if (!mpctx->last_window_title || force ||
-        strcmp(title, mpctx->last_window_title) != 0)
-    {
-        talloc_free(mpctx->last_window_title);
-        mpctx->last_window_title = talloc_steal(mpctx, title);
-
-        if (mpctx->video_out)
-            vo_control(mpctx->video_out, VOCTRL_UPDATE_WINDOW_TITLE, title);
-
-        if (mpctx->ao) {
-            ao_control(mpctx->ao, AOCONTROL_UPDATE_STREAM_TITLE, title);
-        }
-    } else {
-        talloc_free(title);
-    }
-}
-
 void error_on_track(struct MPContext *mpctx, struct track *track)
 {
     if (!track || !track->selected)
         return;
+
     mp_deselect_track(mpctx, track);
     if (track->type == STREAM_AUDIO)
         MP_INFO(mpctx, "Audio: no audio\n");
-    if (track->type == STREAM_VIDEO)
-        MP_INFO(mpctx, "Video: no video\n");
-    if (mpctx->opts->stop_playback_on_init_failure ||
-        !(mpctx->vo_chain || mpctx->ao_chain))
+
+    if (mpctx->opts->stop_playback_on_init_failure || !mpctx->ao_chain)
     {
         if (!mpctx->stop_play)
             mpctx->stop_play = PT_ERROR;
         if (mpctx->error_playing >= 0)
             mpctx->error_playing = MPV_ERROR_NOTHING_TO_PLAY;
     }
+
     mp_wakeup_core(mpctx);
 }
 

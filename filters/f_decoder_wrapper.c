@@ -35,12 +35,8 @@
 
 #include "common/codecs.h"
 #include "common/global.h"
-#include "common/recorder.h"
 
 #include "audio/aframe.h"
-#include "video/out/vo.h"
-#include "video/csputils.h"
-
 #include "demux/stheader.h"
 
 #include "f_decoder_wrapper.h"
@@ -60,28 +56,15 @@ struct priv {
     // Demuxer output.
     struct mp_pin *demux;
 
-    // Last PTS from decoder (set with each vd_driver->decode() call)
-    double codec_pts;
-    int num_codec_pts_problems;
-
-    // Last packet DTS from decoder (passed through from source packets)
-    double codec_dts;
-    int num_codec_dts_problems;
-
     // PTS or DTS of packet first read
     double first_packet_pdts;
 
     // There was at least one packet with nonsense timestamps.
     int has_broken_packet_pts; // <0: uninitialized, 0: no problems, 1: broken
-
-    int has_broken_decoded_pts;
-
     int packets_without_output; // number packets sent without frame received
 
     // Final PTS of previously decoded frame
     double pts;
-
-    struct mp_image_params dec_format, last_format, fixed_format;
 
     double start_pts;
     double start, end;
@@ -99,16 +82,15 @@ static void reset_decoder(struct priv *p)
     p->first_packet_pdts = MP_NOPTS_VALUE;
     p->start_pts = MP_NOPTS_VALUE;
     p->pts = MP_NOPTS_VALUE;
-    p->codec_pts = MP_NOPTS_VALUE;
-    p->codec_dts = MP_NOPTS_VALUE;
-    p->has_broken_decoded_pts = 0;
-    p->last_format = p->fixed_format = (struct mp_image_params){0};
     p->public.dropped_frames = 0;
     p->public.attempt_framedrops = 0;
     p->public.pts_reset = false;
     p->packets_without_output = 0;
+
     mp_frame_unref(&p->packet);
+
     talloc_free(p->new_segment);
+
     p->new_segment = NULL;
     p->start = p->end = MP_NOPTS_VALUE;
     p->coverart_returned = 0;
@@ -145,13 +127,6 @@ static void destroy(struct mp_filter *f)
     mp_frame_unref(&p->decoded_coverart);
 }
 
-struct mp_decoder_list *video_decoder_list(void)
-{
-    struct mp_decoder_list *list = talloc_zero(NULL, struct mp_decoder_list);
-    vd_lavc.add_decoders(list);
-    return list;
-}
-
 struct mp_decoder_list *audio_decoder_list(void)
 {
     struct mp_decoder_list *list = talloc_zero(NULL, struct mp_decoder_list);
@@ -176,10 +151,7 @@ bool mp_decoder_wrapper_reinit(struct mp_decoder_wrapper *d)
     struct mp_decoder_list *list = NULL;
     char *user_list = NULL;
 
-    if (p->codec->type == STREAM_VIDEO) {
-        driver = &vd_lavc;
-        user_list = opts->video_decoders;
-    } else if (p->codec->type == STREAM_AUDIO) {
+    if (p->codec->type == STREAM_AUDIO) {
         driver = &ad_lavc;
         user_list = opts->audio_decoders;
 
@@ -226,182 +198,14 @@ bool mp_decoder_wrapper_reinit(struct mp_decoder_wrapper *d)
     }
 
     talloc_free(list);
-    return !!p->decoder;
-}
 
-static bool is_valid_peak(float sig_peak)
-{
-    return !sig_peak || (sig_peak >= 1 && sig_peak <= 100);
-}
-
-static void fix_image_params(struct priv *p,
-                             struct mp_image_params *params)
-{
-    struct mp_image_params m = *params;
-    struct mp_codec_params *c = p->codec;
-    struct MPOpts *opts = p->opt_cache->opts;
-    m_config_cache_update(p->opt_cache);
-
-    MP_VERBOSE(p, "Decoder format: %s\n", mp_image_params_to_str(params));
-    p->dec_format = *params;
-
-    // While mp_image_params normally always have to have d_w/d_h set, the
-    // decoder signals unknown bitstream aspect ratio with both set to 0.
-    bool use_container = true;
-    if (opts->aspect_method == 1 && m.p_w > 0 && m.p_h > 0) {
-        MP_VERBOSE(p, "Using bitstream aspect ratio.\n");
-        use_container = false;
-    }
-
-    if (use_container && c->par_w > 0 && c->par_h) {
-        MP_VERBOSE(p, "Using container aspect ratio.\n");
-        m.p_w = c->par_w;
-        m.p_h = c->par_h;
-    }
-
-    if (opts->movie_aspect >= 0) {
-        MP_VERBOSE(p, "Forcing user-set aspect ratio.\n");
-        if (opts->movie_aspect == 0) {
-            m.p_w = m.p_h = 1;
-        } else {
-            AVRational a = av_d2q(opts->movie_aspect, INT_MAX);
-            mp_image_params_set_dsize(&m, a.num, a.den);
-        }
-    }
-
-    // Assume square pixels if no aspect ratio is set at all.
-    if (m.p_w <= 0 || m.p_h <= 0)
-        m.p_w = m.p_h = 1;
-
-    m.rotate = p->codec->rotate;
-    m.stereo3d = p->codec->stereo_mode;
-
-    if (opts->video_rotate < 0) {
-        m.rotate = 0;
-    } else {
-        m.rotate = (m.rotate + opts->video_rotate) % 360;
-    }
-
-    mp_colorspace_merge(&m.color, &c->color);
-
-    // Sanitize the HDR peak. Sadly necessary
-    if (!is_valid_peak(m.color.sig_peak)) {
-        MP_WARN(p, "Invalid HDR peak in stream: %f\n", m.color.sig_peak);
-        m.color.sig_peak = 0.0;
-    }
-
-    m.spherical = c->spherical;
-    if (m.spherical.type == MP_SPHERICAL_AUTO)
-        m.spherical.type = MP_SPHERICAL_NONE;
-
-    // Guess missing colorspace fields from metadata. This guarantees all
-    // fields are at least set to legal values afterwards.
-    mp_image_params_guess_csp(&m);
-
-    p->last_format = *params;
-    p->fixed_format = m;
-}
-
-static void process_video_frame(struct priv *p, struct mp_image *mpi)
-{
-    struct MPOpts *opts = p->opt_cache->opts;
-    m_config_cache_update(p->opt_cache);
-
-    // Note: the PTS is reordered, but the DTS is not. Both should be monotonic.
-    double pts = mpi->pts;
-    double dts = mpi->dts;
-
-    if (pts != MP_NOPTS_VALUE) {
-        if (pts < p->codec_pts)
-            p->num_codec_pts_problems++;
-        p->codec_pts = mpi->pts;
-    }
-
-    if (dts != MP_NOPTS_VALUE) {
-        if (dts <= p->codec_dts)
-            p->num_codec_dts_problems++;
-        p->codec_dts = mpi->dts;
-    }
-
-    if (p->has_broken_packet_pts < 0)
-        p->has_broken_packet_pts++;
-    if (p->num_codec_pts_problems)
-        p->has_broken_packet_pts = 1;
-
-    // If PTS is unset, or non-monotonic, fall back to DTS.
-    if ((p->num_codec_pts_problems > p->num_codec_dts_problems ||
-         pts == MP_NOPTS_VALUE) && dts != MP_NOPTS_VALUE)
-        pts = dts;
-
-    if (!opts->correct_pts || pts == MP_NOPTS_VALUE) {
-        double fps = p->public.fps > 0 ? p->public.fps : 25;
-
-        if (opts->correct_pts) {
-            if (p->has_broken_decoded_pts <= 1) {
-                MP_WARN(p, "No video PTS! Making something up. Using "
-                        "%f FPS.\n", fps);
-                if (p->has_broken_decoded_pts == 1)
-                    MP_WARN(p, "Ignoring further missing PTS warnings.\n");
-                p->has_broken_decoded_pts++;
-            }
-        }
-
-        double frame_time = 1.0f / fps;
-        double base = p->first_packet_pdts;
-        pts = p->pts;
-        if (pts == MP_NOPTS_VALUE) {
-            pts = base == MP_NOPTS_VALUE ? 0 : base;
-        } else {
-            pts += frame_time;
-        }
-    }
-
-    if (!mp_image_params_equal(&p->last_format, &mpi->params))
-        fix_image_params(p, &mpi->params);
-
-    mpi->params = p->fixed_format;
-    mpi->nominal_fps = p->public.fps;
-
-    mpi->pts = pts;
-    p->pts = pts;
-
-    // Compensate for incorrectly using mpeg-style DTS for avi timestamps.
-    if (p->decoder && p->decoder->control && p->codec->avi_dts &&
-        opts->correct_pts && mpi->pts != MP_NOPTS_VALUE && p->public.fps > 0)
-    {
-        int delay = -1;
-        p->decoder->control(p->decoder->f, VDCTRL_GET_BFRAMES, &delay);
-        mpi->pts -= MPMAX(delay, 0) / p->public.fps;
-    }
-
-    struct demux_packet *ccpkt = new_demux_packet_from_buf(mpi->a53_cc);
-    if (ccpkt) {
-        av_buffer_unref(&mpi->a53_cc);
-        ccpkt->pts = mpi->pts;
-        ccpkt->dts = mpi->dts;
-        demuxer_feed_caption(p->header, ccpkt);
-    }
-
-    if (mpi->pts == MP_NOPTS_VALUE || mpi->pts >= p->start_pts)
-        p->start_pts = MP_NOPTS_VALUE;
-}
-
-void mp_decoder_wrapper_reset_params(struct mp_decoder_wrapper *d)
-{
-    struct priv *p = d->f->priv;
-    p->last_format = (struct mp_image_params){0};
-}
-
-void mp_decoder_wrapper_get_video_dec_params(struct mp_decoder_wrapper *d,
-                                             struct mp_image_params *m)
-{
-    struct priv *p = d->f->priv;
-    *m = p->dec_format;
+    return p->decoder ? true: false;
 }
 
 static void process_audio_frame(struct priv *p, struct mp_aframe *aframe)
 {
     double frame_pts = mp_aframe_get_pts(aframe);
+
     if (frame_pts != MP_NOPTS_VALUE) {
         if (p->pts != MP_NOPTS_VALUE)
             MP_STATS(p, "value %f audio-pts-err", p->pts - frame_pts);
@@ -495,9 +299,6 @@ static void feed_packet(struct priv *p)
         p->decoder->control(p->decoder->f, VDCTRL_SET_FRAMEDROP, &framedrop_type);
     }
 
-    if (p->public.recorder_sink)
-        mp_recorder_feed_packet(p->public.recorder_sink, packet);
-
     double pkt_pts = packet ? packet->pts : MP_NOPTS_VALUE;
     double pkt_dts = packet ? packet->dts : MP_NOPTS_VALUE;
 
@@ -529,18 +330,7 @@ static bool process_decoded_frame(struct priv *p, struct mp_frame *frame)
 
     bool segment_ended = false;
 
-    if (frame->type == MP_FRAME_VIDEO) {
-        struct mp_image *mpi = frame->data;
-
-        process_video_frame(p, mpi);
-
-        if (mpi->pts != MP_NOPTS_VALUE) {
-            double vpts = mpi->pts;
-            segment_ended = p->end != MP_NOPTS_VALUE && vpts >= p->end;
-            if ((p->start != MP_NOPTS_VALUE && vpts < p->start) || segment_ended)
-                mp_frame_unref(frame);
-        }
-    } else if (frame->type == MP_FRAME_AUDIO) {
+    if (frame->type == MP_FRAME_AUDIO) {
         struct mp_aframe *aframe = frame->data;
 
         process_audio_frame(p, aframe);

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "options/m_option.h"
-#include "video/mp_image.h"
+//#include "video/mp_image.h"
 
 #include "filter.h"
 
@@ -27,13 +27,6 @@ struct mp_output_chain {
     // For implementing change notifications out input/output_params.
     bool reconfig_happened;
 
-    // --- for type==MP_OUTPUT_CHAIN_VIDEO
-    struct mp_image_params input_params;
-    struct mp_image_params output_params;
-    double container_fps;
-    void (*update_subtitles)(void *ctx, double pts);
-    void *update_subtitles_ctx;
-
     // --- for type==MP_OUTPUT_CHAIN_AUDIO
     struct mp_aframe *input_aformat;
     struct mp_aframe *output_aformat;
@@ -47,12 +40,6 @@ struct mp_output_chain {
 // (free by freeing mp_output_chain.f)
 struct mp_output_chain *mp_output_chain_create(struct mp_filter *parent,
                                                enum mp_output_chain_type type);
-
-// Set the VO, which will be used to determine basic capabilities like format
-// and rotation support, and to init hardware filtering things.
-// For type==MP_OUTPUT_CHAIN_VIDEO only.
-struct vo;
-void mp_output_chain_set_vo(struct mp_output_chain *p, struct vo *vo);
 
 // Set the AO. The AO format will be used to determine the filter chain output.
 // The API user may be asked to update the AO midstream if ao_needs_update is

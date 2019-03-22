@@ -232,9 +232,10 @@ static AudioChannelLayout* ca_query_stereo_layout(struct ao *ao,
                                                   void *talloc_ctx)
 {
     OSStatus err;
+    uint32_t channels[2];
     const int nch = 2;
-    uint32_t channels[nch];
     AudioChannelLayout *r = NULL;
+
 
     AudioObjectPropertyAddress p_addr = (AudioObjectPropertyAddress) {
         .mSelector = kAudioDevicePropertyPreferredChannelsForStereo,

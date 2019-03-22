@@ -1,51 +1,27 @@
+
+#include <assert.h>
+#include "ta/ta_talloc.h"
+#include "common/msg.h"
+#include "common/common.h"
+
 #include "audio/aframe.h"
-#include "video/mp_image.h"
+//#include "video/mp_image.h"
 
 #include "f_utils.h"
 #include "filter_internal.h"
 
 struct frame_duration_priv {
-    struct mp_image *buffered;
+
 };
 
 static void frame_duration_process(struct mp_filter *f)
 {
-    struct frame_duration_priv *p = f->priv;
 
-    if (!mp_pin_can_transfer_data(f->ppins[1], f->ppins[0]))
-        return;
-
-    struct mp_frame frame = mp_pin_out_read(f->ppins[0]);
-
-    if (frame.type == MP_FRAME_EOF && p->buffered) {
-        mp_pin_in_write(f->ppins[1], MAKE_FRAME(MP_FRAME_VIDEO, p->buffered));
-        p->buffered = NULL;
-        // Pass through the actual EOF in the next iteration.
-        mp_pin_out_repeat_eof(f->ppins[0]);
-    } else if (frame.type == MP_FRAME_VIDEO) {
-        struct mp_image *next = frame.data;
-        if (p->buffered) {
-            if (p->buffered->pts != MP_NOPTS_VALUE &&
-                next->pts != MP_NOPTS_VALUE &&
-                next->pts >= p->buffered->pts)
-            {
-                p->buffered->pkt_duration = next->pts - p->buffered->pts;
-            }
-            mp_pin_in_write(f->ppins[1], MAKE_FRAME(MP_FRAME_VIDEO, p->buffered));
-        } else {
-            mp_pin_out_request_data(f->ppins[0]);
-        }
-        p->buffered = next;
-    } else {
-        mp_pin_in_write(f->ppins[1], frame);
-    }
 }
 
 static void frame_duration_reset(struct mp_filter *f)
 {
-    struct frame_duration_priv *p = f->priv;
 
-    mp_image_unrefp(&p->buffered);
 }
 
 static const struct mp_filter_info frame_duration_filter = {

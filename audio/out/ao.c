@@ -21,7 +21,7 @@
 #include <math.h>
 #include <assert.h>
 
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 
 #include "config.h"
 #include "ao.h"
@@ -35,14 +35,12 @@
 #include "common/common.h"
 #include "common/global.h"
 
-extern const struct ao_driver audio_out_oss;
 extern const struct ao_driver audio_out_audiounit;
 extern const struct ao_driver audio_out_coreaudio;
 extern const struct ao_driver audio_out_coreaudio_exclusive;
 extern const struct ao_driver audio_out_rsound;
 extern const struct ao_driver audio_out_sndio;
 extern const struct ao_driver audio_out_pulse;
-extern const struct ao_driver audio_out_jack;
 extern const struct ao_driver audio_out_openal;
 extern const struct ao_driver audio_out_opensles;
 extern const struct ao_driver audio_out_null;
@@ -69,13 +67,6 @@ static const struct ao_driver * const audio_out_drivers[] = {
 #if HAVE_WASAPI
     &audio_out_wasapi,
 #endif
-#if HAVE_OSS_AUDIO
-    &audio_out_oss,
-#endif
-    // wrappers:
-#if HAVE_JACK
-    &audio_out_jack,
-#endif
 #if HAVE_OPENAL
     &audio_out_openal,
 #endif
@@ -92,8 +83,8 @@ static const struct ao_driver * const audio_out_drivers[] = {
 #if HAVE_COREAUDIO
     &audio_out_coreaudio_exclusive,
 #endif
-    &audio_out_pcm,
-    &audio_out_lavc,
+//    &audio_out_pcm,
+//    &audio_out_lavc,
 #if HAVE_RSOUND
     &audio_out_rsound,
 #endif

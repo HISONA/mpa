@@ -1,14 +1,14 @@
 #include "audio/aframe.h"
 #include "audio/out/ao.h"
 #include "common/global.h"
+#include "common/msg.h"
 #include "options/m_config.h"
 #include "options/m_option.h"
-#include "video/out/vo.h"
+//#include "video/out/vo.h"
 
 #include "filter_internal.h"
-
-#include "f_autoconvert.h"
 #include "f_auto_filters.h"
+#include "f_autoconvert.h"
 #include "f_lavfi.h"
 #include "f_output_chain.h"
 #include "f_utils.h"
@@ -22,8 +22,6 @@ struct chain {
 
     // Expected media type.
     enum mp_frame_type frame_type;
-
-    struct mp_stream_info stream_info;
 
     struct mp_user_filter **pre_filters;
     int num_pre_filters;
@@ -42,7 +40,6 @@ struct chain {
     struct mp_user_filter *input, *output, *convert_wrapper;
     struct mp_autoconvert *convert;
 
-    struct vo *vo;
     struct ao *ao;
 
     struct mp_output_chain public;
@@ -62,7 +59,6 @@ struct mp_user_filter {
     bool generated_label;
     char *name;
 
-    struct mp_image_params last_in_vformat;
     struct mp_aframe *last_in_aformat;
 
     bool last_is_active;
@@ -79,49 +75,12 @@ static void update_output_caps(struct chain *p)
         return;
 
     mp_autoconvert_clear(p->convert);
-
-    if (p->vo) {
-        uint8_t allowed_output_formats[IMGFMT_END - IMGFMT_START] = {0};
-        vo_query_formats(p->vo, allowed_output_formats);
-
-        for (int n = 0; n < MP_ARRAY_SIZE(allowed_output_formats); n++) {
-            if (allowed_output_formats[n])
-                mp_autoconvert_add_imgfmt(p->convert, IMGFMT_START + n, 0);
-        }
-
-        if (p->vo->hwdec_devs)
-            mp_autoconvert_add_vo_hwdec_subfmts(p->convert, p->vo->hwdec_devs);
-    }
 }
 
 static void check_in_format_change(struct mp_user_filter *u,
                                    struct mp_frame frame)
 {
     struct chain *p = u->p;
-
-    if (frame.type == MP_FRAME_VIDEO) {
-        struct mp_image *img = frame.data;
-
-        if (!mp_image_params_equal(&img->params, &u->last_in_vformat)) {
-            MP_VERBOSE(p, "[%s] %s\n", u->name,
-                       mp_image_params_to_str(&img->params));
-            u->last_in_vformat = img->params;
-
-            if (u == p->input) {
-                p->public.input_params = img->params;
-
-                // Unfortunately there's no good place to update these.
-                // But a common case is enabling HW decoding, which
-                // might init some support of them in the VO, and update
-                // the VO's format list.
-                update_output_caps(p);
-            } else if (u == p->output) {
-                p->public.output_params = img->params;
-            }
-
-            p->public.reconfig_happened = true;
-        }
-    }
 
     if (frame.type == MP_FRAME_AUDIO) {
         struct mp_aframe *aframe = frame.data;
@@ -289,11 +248,6 @@ static void process(struct mp_filter *f)
         if (frame.type == MP_FRAME_EOF)
             MP_VERBOSE(p, "filter input EOF\n");
 
-        if (frame.type == MP_FRAME_VIDEO && p->public.update_subtitles) {
-            p->public.update_subtitles(p->public.update_subtitles_ctx,
-                                       mp_frame_get_pts(frame));
-        }
-
         mp_pin_in_write(p->filters_in, frame);
     }
 
@@ -328,7 +282,7 @@ void mp_output_chain_reset_harder(struct mp_output_chain *c)
         struct mp_user_filter *u = p->all_filters[n];
 
         u->failed = false;
-        u->last_in_vformat = (struct mp_image_params){0};
+//        u->last_in_vformat = (struct mp_image_params){0};
         mp_aframe_reset(u->last_in_aformat);
     }
 
@@ -350,27 +304,6 @@ static const struct mp_filter_info output_chain_filter = {
     .reset = reset,
     .destroy = destroy,
 };
-
-static double get_display_fps(struct mp_stream_info *i)
-{
-    struct chain *p = i->priv;
-    double res = 0;
-    if (p->vo)
-        vo_control(p->vo, VOCTRL_GET_DISPLAY_FPS, &res);
-    return res;
-}
-
-void mp_output_chain_set_vo(struct mp_output_chain *c, struct vo *vo)
-{
-    struct chain *p = c->f->priv;
-
-    p->stream_info.hwdec_devs = vo ? vo->hwdec_devs : NULL;
-    p->stream_info.osd = vo ? vo->osd : NULL;
-    p->stream_info.rotate90 = vo ? vo->driver->caps & VO_CAP_ROTATE90 : false;
-    p->stream_info.dr_vo = vo;
-    p->vo = vo;
-    update_output_caps(p);
-}
 
 void mp_output_chain_set_ao(struct mp_output_chain *c, struct ao *ao)
 {
@@ -634,30 +567,6 @@ error:
     return false;
 }
 
-static void create_video_things(struct chain *p)
-{
-    p->frame_type = MP_FRAME_VIDEO;
-
-    p->stream_info.priv = p;
-    p->stream_info.get_display_fps = get_display_fps;
-
-    p->f->stream_info = &p->stream_info;
-
-    struct mp_user_filter *f = create_wrapper_filter(p);
-    f->name = "userdeint";
-    f->f = mp_deint_create(f->wrapper);
-    if (!f->f)
-        abort();
-    MP_TARRAY_APPEND(p, p->pre_filters, p->num_pre_filters, f);
-
-    f = create_wrapper_filter(p);
-    f->name = "autorotate";
-    f->f = mp_autorotate_create(f->wrapper);
-    if (!f->f)
-        abort();
-    MP_TARRAY_APPEND(p, p->post_filters, p->num_post_filters, f);
-}
-
 static void create_audio_things(struct chain *p)
 {
     p->frame_type = MP_FRAME_AUDIO;
@@ -682,7 +591,6 @@ struct mp_output_chain *mp_output_chain_create(struct mp_filter *parent,
 
     const char *log_name = NULL;
     switch (type) {
-    case MP_OUTPUT_CHAIN_VIDEO: log_name = "!vf"; break;
     case MP_OUTPUT_CHAIN_AUDIO: log_name = "!af"; break;
     }
     if (log_name)
@@ -707,7 +615,6 @@ struct mp_output_chain *mp_output_chain_create(struct mp_filter *parent,
     MP_TARRAY_APPEND(p, p->pre_filters, p->num_pre_filters, p->input);
 
     switch (type) {
-    case MP_OUTPUT_CHAIN_VIDEO: create_video_things(p); break;
     case MP_OUTPUT_CHAIN_AUDIO: create_audio_things(p); break;
     }
 

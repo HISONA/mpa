@@ -30,7 +30,6 @@ const struct mp_user_filter_entry *af_list[] = {
 #if HAVE_RUBBERBAND
     &af_rubberband,
 #endif
-    &af_lavcac3enc,
 };
 
 static bool get_af_desc(struct m_obj_desc *dst, int index)
@@ -57,54 +56,6 @@ const struct m_obj_list af_obj_list = {
     .print_unknown_entry_help = print_af_lavfi_help,
 };
 
-// --vf option
-
-const struct mp_user_filter_entry *vf_list[] = {
-    &vf_format,
-    &vf_lavfi,
-    &vf_lavfi_bridge,
-    &vf_sub,
-#if HAVE_VAPOURSYNTH_CORE && HAVE_VAPOURSYNTH
-    &vf_vapoursynth,
-#endif
-#if HAVE_VAPOURSYNTH_CORE && HAVE_VAPOURSYNTH_LAZY
-    &vf_vapoursynth_lazy,
-#endif
-#if HAVE_VDPAU
-    &vf_vdpaupp,
-#endif
-#if HAVE_VAAPI
-    &vf_vavpp,
-#endif
-#if HAVE_D3D_HWACCEL
-    &vf_d3d11vpp,
-#endif
-};
-
-static bool get_vf_desc(struct m_obj_desc *dst, int index)
-{
-    return get_desc_from(vf_list, MP_ARRAY_SIZE(vf_list), dst, index);
-}
-
-static void print_vf_help_list(struct mp_log *log)
-{
-    print_lavfi_help_list(log, AVMEDIA_TYPE_VIDEO);
-}
-
-static void print_vf_lavfi_help(struct mp_log *log, const char *name)
-{
-    print_lavfi_help(log, name, AVMEDIA_TYPE_VIDEO);
-}
-
-const struct m_obj_list vf_obj_list = {
-    .get_desc = get_vf_desc,
-    .description = "video filters",
-    .allow_disable_entries = true,
-    .allow_unknown_entries = true,
-    .print_help_list = print_vf_help_list,
-    .print_unknown_entry_help = print_vf_lavfi_help,
-};
-
 // Create a bidir, single-media filter from command line arguments.
 struct mp_filter *mp_create_user_filter(struct mp_filter *parent,
                                         enum mp_output_chain_type type,
@@ -113,15 +64,16 @@ struct mp_filter *mp_create_user_filter(struct mp_filter *parent,
     const struct m_obj_list *obj_list = NULL;
     const char *defs_name = NULL;
     enum mp_frame_type frame_type = 0;
-    if (type == MP_OUTPUT_CHAIN_VIDEO) {
-        frame_type = MP_FRAME_VIDEO;
-        obj_list = &vf_obj_list;
-        defs_name = "vf-defaults";
-    } else if (type == MP_OUTPUT_CHAIN_AUDIO) {
+
+    if (type == MP_OUTPUT_CHAIN_AUDIO) {
         frame_type = MP_FRAME_AUDIO;
         obj_list = &af_obj_list;
         defs_name = "af-defaults";
+
+        printf("%s: type: MP_OUTPUT_CHAIN_AUDIO \n", __func__);
+
     }
+
     assert(frame_type && obj_list);
 
     struct mp_filter *f = NULL;

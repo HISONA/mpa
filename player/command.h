@@ -20,7 +20,7 @@
 
 #include <stdbool.h>
 
-#include "libmpv/client.h"
+#include "libmpa/client.h"
 
 struct MPContext;
 struct mp_cmd;
@@ -39,17 +39,15 @@ struct mp_cmd_ctx {
     struct mp_cmd_arg *args;
     int num_args;
     const void *priv;   // cmd->def->priv
-    // OSD control
-    int on_osd;         // MP_ON_OSD_FLAGS;
-    bool msg_osd;       // OSD message requested
-    bool bar_osd;       // OSD bar requested
-    bool seek_msg_osd;  // same as above, but for seek commands
-    bool seek_bar_osd;
+
+
     // If mp_cmd_def.can_abort is set, this will be set.
     struct mp_abort_entry *abort;
+
     // Return values (to be set by command implementation, read by the
     // completion callback).
     bool success;       // true by default
+
     struct mpv_node result;
     // Command handlers can set this to false if returning from the command
     // handler does not complete the command. It stops the common command code

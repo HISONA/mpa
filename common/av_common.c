@@ -35,7 +35,6 @@
 #include "demux/packet.h"
 #include "demux/stheader.h"
 #include "misc/bstr.h"
-#include "video/fmt-conversion.h"
 #include "av_common.h"
 #include "codecs.h"
 
@@ -239,12 +238,6 @@ static void add_codecs(struct mp_decoder_list *list, enum AVMediaType type,
 void mp_add_lavc_decoders(struct mp_decoder_list *list, enum AVMediaType type)
 {
     add_codecs(list, type, true);
-}
-
-// (Abuses the decoder list data structures.)
-void mp_add_lavc_encoders(struct mp_decoder_list *list)
-{
-    add_codecs(list, AVMEDIA_TYPE_UNKNOWN, false);
 }
 
 char **mp_get_lavf_demuxers(void)

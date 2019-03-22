@@ -421,7 +421,8 @@ static void mp_destroy_client(mpv_handle *ctx, bool terminate)
     // causes a crash, block until all asynchronous requests were served.
     mpv_wait_async_requests(ctx);
 
-    osd_set_external(mpctx->osd, ctx, 0, 0, NULL);
+//    osd_set_external(mpctx->osd, ctx, 0, 0, NULL);
+
     mp_input_remove_sections_by_owner(mpctx->input, ctx->name);
 
     pthread_mutex_lock(&clients->lock);
@@ -1024,9 +1025,10 @@ static void cmd_complete(struct mp_cmd_ctx *cmd)
     struct cmd_request *req = cmd->on_completion_priv;
 
     req->status = cmd->success ? 0 : MPV_ERROR_COMMAND;
-    if (req->res) {
+    if (req->res)
+    {
         *req->res = cmd->result;
-        cmd->result = (mpv_node){0};
+        cmd->result = (mpv_node){{0}};
     }
 
     // Unblock the waiting thread (especially for async commands).
@@ -1103,7 +1105,8 @@ static void async_cmd_complete(struct mp_cmd_ctx *cmd)
 
     struct mpv_event_command *data = talloc_zero(NULL, struct mpv_event_command);
     data->result = cmd->result;
-    cmd->result = (mpv_node){0};
+    cmd->result = (mpv_node){{0}};
+
     talloc_steal(data, node_get_alloc(&data->result));
 
     struct mpv_event reply = {
@@ -1809,196 +1812,6 @@ void mpv_free(void *data)
 int64_t mpv_get_time_us(mpv_handle *ctx)
 {
     return mp_time_us();
-}
-
-#include "video/out/libmpv.h"
-
-struct kill_ctx {
-    struct MPContext *mpctx;
-    void (*fin)(void *ctx);
-    void *fin_ctx;
-};
-
-static void do_kill(void *ptr)
-{
-    struct kill_ctx *k = ptr;
-    struct MPContext *mpctx = k->mpctx;
-
-    struct track *track = mpctx->vo_chain ? mpctx->vo_chain->track : NULL;
-    uninit_video_out(mpctx);
-    if (track) {
-        mpctx->error_playing = MPV_ERROR_VO_INIT_FAILED;
-        error_on_track(mpctx, track);
-    }
-
-    k->fin(k->fin_ctx);
-}
-
-// Used by vo_libmpv to (a)synchronously uninitialize video.
-void kill_video_async(struct mp_client_api *client_api, void (*fin)(void *ctx),
-                      void *fin_ctx)
-{
-    struct MPContext *mpctx = client_api->mpctx;
-    struct kill_ctx *k = talloc_ptrtype(NULL, k);
-    *k = (struct kill_ctx){
-        .mpctx = mpctx,
-        .fin = fin,
-        .fin_ctx = fin_ctx,
-    };
-    mp_dispatch_enqueue_autofree(mpctx->dispatch, do_kill, k);
-}
-
-// Used by vo_libmpv to set the current render context.
-bool mp_set_main_render_context(struct mp_client_api *client_api,
-                                struct mpv_render_context *ctx, bool active)
-{
-    assert(ctx);
-
-    pthread_mutex_lock(&client_api->lock);
-    bool is_set = !!client_api->render_context;
-    bool is_same = client_api->render_context == ctx;
-    // Can set if it doesn't remove another existing ctx.
-    bool res = is_same || !is_set;
-    if (res)
-        client_api->render_context = active ? ctx : NULL;
-    pthread_mutex_unlock(&client_api->lock);
-    return res;
-}
-
-// Used by vo_libmpv. Relies on guarantees by mp_render_context_acquire().
-struct mpv_render_context *
-mp_client_api_acquire_render_context(struct mp_client_api *ca)
-{
-    struct mpv_render_context *res = NULL;
-    pthread_mutex_lock(&ca->lock);
-    if (ca->render_context && mp_render_context_acquire(ca->render_context))
-        res = ca->render_context;
-    pthread_mutex_unlock(&ca->lock);
-    return res;
-}
-
-// Emulation of old opengl_cb API.
-
-#include "libmpv/opengl_cb.h"
-#include "libmpv/render_gl.h"
-
-struct mpv_opengl_cb_context {
-    struct mp_client_api *client_api;
-    mpv_opengl_cb_update_fn callback;
-    void *callback_ctx;
-};
-
-static mpv_opengl_cb_context *opengl_cb_get_context(mpv_handle *ctx)
-{
-    pthread_mutex_lock(&ctx->clients->lock);
-    mpv_opengl_cb_context *cb = ctx->clients->gl_cb_ctx;
-    if (!cb) {
-        cb = talloc_zero(NULL, struct mpv_opengl_cb_context);
-        cb->client_api = ctx->clients;
-        cb->client_api->gl_cb_ctx = cb;
-    }
-    pthread_mutex_unlock(&ctx->clients->lock);
-    return cb;
-}
-
-void mpv_opengl_cb_set_update_callback(mpv_opengl_cb_context *ctx,
-                                       mpv_opengl_cb_update_fn callback,
-                                       void *callback_ctx)
-{
-    // This was probably supposed to be thread-safe, but we don't care. It's
-    // compatibility code, and if you have problems, use the new API.
-    if (ctx->client_api->render_context) {
-        mpv_render_context_set_update_callback(ctx->client_api->render_context,
-                                               callback, callback_ctx);
-    }
-    // Nasty thing: could set this even while not initialized, so we need to
-    // preserve it.
-    ctx->callback = callback;
-    ctx->callback_ctx = callback_ctx;
-}
-
-int mpv_opengl_cb_init_gl(mpv_opengl_cb_context *ctx, const char *exts,
-                          mpv_opengl_cb_get_proc_address_fn get_proc_address,
-                          void *get_proc_address_ctx)
-{
-    if (ctx->client_api->render_context)
-        return MPV_ERROR_INVALID_PARAMETER;
-
-    // mpv_render_context_create() only calls mp_client_get_global() on it.
-    mpv_handle dummy = {.mpctx = ctx->client_api->mpctx};
-
-    mpv_render_param params[] = {
-        {MPV_RENDER_PARAM_API_TYPE, MPV_RENDER_API_TYPE_OPENGL},
-        {MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &(mpv_opengl_init_params){
-            .get_proc_address = get_proc_address,
-            .get_proc_address_ctx = get_proc_address_ctx,
-            .extra_exts = exts,
-        }},
-        // Hack for explicit legacy hwdec loading. We really want to make it
-        // impossible for proper render API users to trigger this.
-        {(mpv_render_param_type)-1, ctx->client_api->mpctx->global},
-        {0}
-    };
-    int err = mpv_render_context_create(&ctx->client_api->render_context,
-                                        &dummy, params);
-    if (err >= 0) {
-        mpv_render_context_set_update_callback(ctx->client_api->render_context,
-                                               ctx->callback, ctx->callback_ctx);
-    }
-    return err;
-}
-
-int mpv_opengl_cb_draw(mpv_opengl_cb_context *ctx, int fbo, int w, int h)
-{
-    if (!ctx->client_api->render_context)
-        return MPV_ERROR_INVALID_PARAMETER;
-
-    mpv_render_param params[] = {
-        {MPV_RENDER_PARAM_OPENGL_FBO, &(mpv_opengl_fbo){
-            .fbo = fbo,
-            .w = w,
-            .h = abs(h),
-        }},
-        {MPV_RENDER_PARAM_FLIP_Y, &(int){h < 0}},
-        {0}
-    };
-    return mpv_render_context_render(ctx->client_api->render_context, params);
-}
-
-int mpv_opengl_cb_report_flip(mpv_opengl_cb_context *ctx, int64_t time)
-{
-    if (!ctx->client_api->render_context)
-        return MPV_ERROR_INVALID_PARAMETER;
-
-    mpv_render_context_report_swap(ctx->client_api->render_context);
-    return 0;
-}
-
-int mpv_opengl_cb_uninit_gl(mpv_opengl_cb_context *ctx)
-{
-    if (ctx->client_api->render_context)
-        mpv_render_context_free(ctx->client_api->render_context);
-    ctx->client_api->render_context = NULL;
-    return 0;
-}
-
-int mpv_opengl_cb_render(mpv_opengl_cb_context *ctx, int fbo, int vp[4])
-{
-    return mpv_opengl_cb_draw(ctx, fbo, vp[2], vp[3]);
-}
-
-void *mpv_get_sub_api(mpv_handle *ctx, mpv_sub_api sub_api)
-{
-    if (!ctx->mpctx->initialized)
-        return NULL;
-    void *res = NULL;
-    switch (sub_api) {
-    case MPV_SUB_API_OPENGL_CB:
-        res = opengl_cb_get_context(ctx);
-        break;
-    default:;
-    }
-    return res;
 }
 
 // stream_cb

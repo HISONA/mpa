@@ -380,25 +380,6 @@ struct mp_filter_command {
 // Run a command on the filter. Returns success. For libavfilter.
 bool mp_filter_command(struct mp_filter *f, struct mp_filter_command *cmd);
 
-// Specific information about a sub-tree in a filter graph. Currently, this is
-// mostly used to give filters access to VO mechanisms and capabilities.
-struct mp_stream_info {
-    void *priv; // for use by whoever implements the callbacks
-
-    double (*get_display_fps)(struct mp_stream_info *i);
-
-    struct mp_hwdec_devices *hwdec_devs;
-    struct osd_state *osd;
-    bool rotate90;
-    struct vo *dr_vo; // for calling vo_get_image()
-};
-
-// Search for a parent filter (including f) that has this set, and return it.
-struct mp_stream_info *mp_filter_find_stream_info(struct mp_filter *f);
-
-struct AVBufferRef;
-struct AVBufferRef *mp_filter_load_hwdec_device(struct mp_filter *f, int avtype);
-
 // Perform filtering. This runs until the filter graph is blocked (due to
 // missing external input or unread output). It returns whether any outside
 // pins have changed state.

@@ -20,7 +20,7 @@
 
 #include "config.h"
 #include "audio/format.h"
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 #include "ao.h"
 #include "internal.h"
 #include "common/common.h"

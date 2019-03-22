@@ -25,7 +25,7 @@
 
 #include "osdep/io.h"
 
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 
 #include "misc/bstr.h"
 #include "common/msg.h"

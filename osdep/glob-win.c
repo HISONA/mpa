@@ -19,7 +19,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include "osdep/io.h"
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 
 #if HAVE_UWP
 // Missing from MinGW headers.

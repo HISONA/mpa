@@ -29,9 +29,9 @@
 #include <stdbool.h>
 #include <pthread.h>
 
-#include "libmpv/client.h"
+#include "libmpa/client.h"
 
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 
 #include "m_config.h"
 #include "options/m_option.h"
@@ -548,7 +548,7 @@ static void add_sub_group(struct m_config *config, const char *name_prefix,
             .name = concat_name(config, name_prefix, opt->name),
             .opt = opt,
             .group_index = group_index,
-            .is_hidden = !!opt->deprecation_message,
+            .is_hidden = opt->deprecation_message ? true : false,
         };
         MP_TARRAY_APPEND(config, config->opts, config->num_opts, co);
     }

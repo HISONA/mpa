@@ -1,12 +1,9 @@
-![mpv logo](https://raw.githubusercontent.com/mpv-player/mpv.io/master/source/images/mpv-logo-128.png)
 
-# mpv
+# mpa
 
 
-* [External links](#external-links)
 * [Overview](#overview)
 * [System requirements](#system-requirements)
-* [Downloads](#downloads)
 * [Changelog](#changelog)
 * [Compilation](#compilation)
 * [FFmpeg vs. Libav](#ffmpeg-vs-libav)
@@ -19,40 +16,20 @@
 * [Contact](#contact)
 
 
-## External links
-
-
-* [Wiki](https://github.com/mpv-player/mpv/wiki)
-* [FAQ](https://github.com/mpv-player/mpv/wiki/FAQ)
-* [Manual](http://mpv.io/manual/master/)
-
 
 ## Overview
 
 
-**mpv** is a media player based on MPlayer and mplayer2. It supports a wide
-variety of video file formats, audio and video codecs, and subtitle types.
+**mpa** is a audio player based on MPV and MPlayer/mplayer2, and small and lightweight for the purpose of audio players in embedded devices.
+
+mpa can be used to act as an audio player for Smart Assistant devices such as Amazon Echo or Google Home.
 
 Releases can be found on the [release list][releases].
 
 ## System requirements
 
 - A not too ancient Linux, Windows 7 or later, or OSX 10.8 or later.
-- A somewhat capable CPU. Hardware decoding might help if the CPU is too slow to
-  decode video in realtime, but must be explicitly enabled with the `--hwdec`
-  option.
-- A not too crappy GPU. mpv is not intended to be used with bad GPUs. There are
-  many caveats with drivers or system compositors causing tearing, stutter,
-  etc. On Windows, you might want to make sure the graphics drivers are
-  current. In some cases, ancient fallback video output methods can help
-  (such as `--vo=xv` on Linux), but this use is not recommended or supported.
 
-
-## Downloads
-
-
-For semi-official builds and third-party packages please see
-[mpv.io/installation](http://mpv.io/installation/).
 
 ## Changelog
 
@@ -103,26 +80,10 @@ Example:
 Essential dependencies (incomplete list):
 
 - gcc or clang
-- X development headers (xlib, xrandr, xext, xscrnsaver, xinerama, libvdpau,
-  libGL, GLX, EGL, xv, ...)
 - Audio output development headers (libasound/ALSA, pulseaudio)
-- FFmpeg libraries (libavutil libavcodec libavformat libswscale libavfilter
+- FFmpeg libraries (libavutil libavcodec libavformat libavfilter
   and either libswresample or libavresample)
 - zlib
-- iconv (normally provided by the system libc)
-- libass (OSD, OSC, text subtitles)
-- Lua (optional, required for the OSC pseudo-GUI and youtube-dl integration)
-- libjpeg (optional, used for screenshots only)
-- uchardet (optional, for subtitle charset detection)
-- vdpau and vaapi libraries for hardware decoding on Linux (optional)
-
-Libass dependencies:
-
-- gcc or clang, yasm on x86 and x86_64
-- fribidi, freetype, fontconfig development headers (for libass)
-- harfbuzz (optional, required for correct rendering of combining characters,
-  particularly for correct rendering of non-English text on OSX, and
-  Arabic/Indic scripts on any platform)
 
 FFmpeg dependencies:
 
@@ -169,19 +130,6 @@ artifacts.
 Newer mpv versions will refuse to start if runtime and compile time FFmpeg
 library versions mismatch.
 
-## Release cycle
-
-Every other month, an arbitrary git snapshot is made, and is assigned
-a 0.X.0 version number. No further maintenance is done.
-
-The goal of releases is to make Linux distributions happy. Linux distributions
-are also expected to apply their own patches in case of bugs and security
-issues.
-
-Releases other than the latest release are unsupported and unmaintained.
-
-See the [release policy document][release-policy] for more information.
-
 ## Bug reports
 
 
@@ -201,47 +149,43 @@ For small changes you can just send us pull requests through GitHub. For bigger
 changes come and talk to us on IRC before you start working on them. It will
 make code review easier for both parties later on.
 
-You can check [the wiki](https://github.com/mpv-player/mpv/wiki/Stuff-to-do)
-or the [issue tracker](https://github.com/mpv-player/mpv/issues?q=is%3Aopen+is%3Aissue+label%3A%22feature+request%22)
+You can check [the wiki](https://github.com/HISONA/mpa/wiki)
+or the [issue tracker](https://github.com/HISONA/mpa/issues)
 for ideas on what you could contribute with.
 
-## Relation to MPlayer and mplayer2
+## Relation to MPV and MPlayer/mplayer2
 
-mpv is a fork of MPlayer. Much has changed, and in general, mpv should be
-considered a completely new program, rather than a MPlayer drop-in replacement.
+mpa is a fork of mpv, but video and subtitle related codes are removed.
 
-For details see [FAQ entry](https://github.com/mpv-player/mpv/wiki/FAQ#How_is_mpv_related_to_MPlayer).
+For details see [FAQ entry](https://github.com/HISONA/mpa/wiki/FAQ).
 
 If you are wondering what's different from mplayer2 and MPlayer, an incomplete
 and largely unmaintained list of changes is located [here][mplayer-changes].
 
 ## License
 
-GPLv2 "or later" by default, LGPLv2.1 "or later" with `--enable-lgpl`.
-See [details.](https://github.com/mpv-player/mpv/blob/master/Copyright)
+LGPLv2.1 "or later" by default.
+See [details.](https://github.com/HISONA/mpa/blob/master/Copyright)
 
 
 ## Contact
 
 
-Most activity happens on the IRC channel and the github issue tracker.
+Most activity happens on github issue tracker.
 
 - **GitHub issue tracker**: [issue tracker][issue-tracker] (report bugs here)
-- **User IRC Channel**: `#mpv` on `irc.freenode.net`
-- **Developer IRC Channel**: `#mpv-devel` on `irc.freenode.net`
 
-To contact the `mpv` team in private write to `mpv-team@googlegroups.com`. Use
+To contact the `mpa` team in private write to `hisona.developer@gmail.com`. Use
 only if discretion is required.
 
-[releases]: https://github.com/mpv-player/mpv/releases
-[mpv-build]: https://github.com/mpv-player/mpv-build
-[homebrew-mpv]: https://github.com/mpv-player/homebrew-mpv
-[issue-tracker]:  https://github.com/mpv-player/mpv/issues
+[releases]: https://github.com/HISONA/mpa/releases
+[mpa-build]: https://github.com/HISONA/mpa-build
+[issue-tracker]:  https://github.com/HISONA/mpa/issues
 [ffmpeg_vs_libav]: https://github.com/mpv-player/mpv/wiki/FFmpeg-versus-Libav
-[release-policy]: https://github.com/mpv-player/mpv/blob/master/DOCS/release-policy.md
-[windows_compilation]: https://github.com/mpv-player/mpv/blob/master/DOCS/compile-windows.md
+[release-policy]: https://github.com/HISONA/mpa/blob/master/DOCS/release-policy.md
+[windows_compilation]: https://github.com/HISONA/mpa/blob/master/DOCS/compile-windows.md
 [mplayer-changes]: https://github.com/mpv-player/mpv/blob/master/DOCS/mplayer-changes.rst
-[interface-changes]: https://github.com/mpv-player/mpv/blob/master/DOCS/interface-changes.rst
-[api-changes]: https://github.com/mpv-player/mpv/blob/master/DOCS/client-api-changes.rst
-[restore-old-bindings]: https://github.com/mpv-player/mpv/blob/master/etc/restore-old-bindings.conf
-[contribute.md]: https://github.com/mpv-player/mpv/blob/master/DOCS/contribute.md
+[interface-changes]: https://github.com/HISONA/mpa/blob/master/DOCS/interface-changes.rst
+[api-changes]: https://github.com/HISONA/mpa/blob/master/DOCS/client-api-changes.rst
+[restore-old-bindings]: https://github.com/HISONA/mpa/blob/master/etc/restore-old-bindings.conf
+[contribute.md]: https://github.com/HISONA/mpa/blob/master/DOCS/contribute.md

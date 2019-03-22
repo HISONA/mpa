@@ -55,7 +55,6 @@ extern const m_option_type_t m_option_type_choice;
 extern const m_option_type_t m_option_type_flags;
 extern const m_option_type_t m_option_type_msglevels;
 extern const m_option_type_t m_option_type_print_fn;
-extern const m_option_type_t m_option_type_imgfmt;
 extern const m_option_type_t m_option_type_fourcc;
 extern const m_option_type_t m_option_type_afmt;
 extern const m_option_type_t m_option_type_color;
@@ -214,7 +213,7 @@ struct m_sub_options {
 #define CONF_TYPE_DOUBLE        (&m_option_type_double)
 #define CONF_TYPE_STRING        (&m_option_type_string)
 #define CONF_TYPE_STRING_LIST   (&m_option_type_string_list)
-#define CONF_TYPE_IMGFMT        (&m_option_type_imgfmt)
+//#define CONF_TYPE_IMGFMT        (&m_option_type_imgfmt)
 #define CONF_TYPE_FOURCC        (&m_option_type_fourcc)
 #define CONF_TYPE_AFMT          (&m_option_type_afmt)
 #define CONF_TYPE_OBJ_SETTINGS_LIST (&m_option_type_obj_settings_list)
@@ -636,9 +635,6 @@ extern const char m_option_path_separator;
                 .type = &m_option_type_obj_settings_list,       \
                 .priv = (void*)MP_EXPECT_TYPE(const struct m_obj_list*, objlist), \
                 __VA_ARGS__)
-
-#define OPT_IMAGEFORMAT(...) \
-    OPT_GENERAL(int, __VA_ARGS__, .type = &m_option_type_imgfmt)
 
 #define OPT_AUDIOFORMAT(...) \
     OPT_GENERAL(int, __VA_ARGS__, .type = &m_option_type_afmt)

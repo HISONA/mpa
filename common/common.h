@@ -25,7 +25,7 @@
 #include <stdint.h>
 
 #include "osdep/compiler.h"
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 
 // double should be able to represent this exactly
 #define MP_NOPTS_VALUE (-0x1p+63)
@@ -58,9 +58,9 @@ enum stream_type {
     STREAM_TYPE_COUNT,
 };
 
-extern const char mpv_version[];
-extern const char mpv_builddate[];
-extern const char mpv_copyright[];
+extern const char mpa_version[];
+extern const char mpa_builddate[];
+extern const char mpa_copyright[];
 
 char *mp_format_time(double time, bool fractions);
 char *mp_format_time_fmt(const char *fmt, double time);
@@ -69,14 +69,6 @@ struct mp_rect {
     int x0, y0;
     int x1, y1;
 };
-
-#define mp_rect_w(r) ((r).x1 - (r).x0)
-#define mp_rect_h(r) ((r).y1 - (r).y0)
-
-void mp_rect_union(struct mp_rect *rc, const struct mp_rect *src);
-bool mp_rect_intersection(struct mp_rect *rc, const struct mp_rect *rc2);
-bool mp_rect_contains(struct mp_rect *rc, int x, int y);
-bool mp_rect_equals(struct mp_rect *rc1, struct mp_rect *rc2);
 
 int mp_snprintf_cat(char *str, size_t size, const char *format, ...)
     PRINTF_ATTRIBUTE(3, 4);

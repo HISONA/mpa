@@ -62,7 +62,6 @@ struct mp_decoder_wrapper {
 struct mp_decoder_wrapper *mp_decoder_wrapper_create(struct mp_filter *parent,
                                                      struct sh_stream *src);
 
-struct mp_decoder_list *video_decoder_list(void);
 struct mp_decoder_list *audio_decoder_list(void);
 
 // For precise seeking: if possible, try to drop frames up until the given PTS.
@@ -81,12 +80,6 @@ enum dec_ctrl {
 int mp_decoder_wrapper_control(struct mp_decoder_wrapper *d,
                                enum dec_ctrl cmd, void *arg);
 
-// Force it to reevaluate output parameters (for overrides like aspect).
-void mp_decoder_wrapper_reset_params(struct mp_decoder_wrapper *d);
-
-void mp_decoder_wrapper_get_video_dec_params(struct mp_decoder_wrapper *d,
-                                             struct mp_image_params *p);
-
 bool mp_decoder_wrapper_reinit(struct mp_decoder_wrapper *d);
 
 struct mp_decoder {
@@ -104,7 +97,6 @@ struct mp_decoder_fns {
     void (*add_decoders)(struct mp_decoder_list *list);
 };
 
-extern const struct mp_decoder_fns vd_lavc;
 extern const struct mp_decoder_fns ad_lavc;
 extern const struct mp_decoder_fns ad_spdif;
 

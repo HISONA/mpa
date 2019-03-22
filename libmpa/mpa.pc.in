@@ -1,0 +1,12 @@
+prefix=@PREFIX@
+exec_prefix=@PREFIX@
+libdir=@LIBDIR@
+includedir=@INCDIR@
+
+Name: mpa
+Description: mpa audio player client library
+Version: @VERSION@
+Requires:
+Libs: -L${libdir} -lmpa
+Libs.private: @PRIV_LIBS@
+Cflags: -I${includedir}

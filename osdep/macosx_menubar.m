@@ -647,8 +647,8 @@
     NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:
         @"mpv", @"ApplicationName",
         [(Application *)NSApp getMPVIcon], @"ApplicationIcon",
-        [NSString stringWithUTF8String:mpv_copyright], @"Copyright",
-        [NSString stringWithUTF8String:mpv_version], @"ApplicationVersion",
+        [NSString stringWithUTF8String:mpa_copyright], @"Copyright",
+        [NSString stringWithUTF8String:mpa_version], @"ApplicationVersion",
         nil];
     [NSApp orderFrontStandardAboutPanelWithOptions:options];
 }

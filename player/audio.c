@@ -23,10 +23,9 @@
 #include <assert.h>
 
 #include "config.h"
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 
 #include "common/msg.h"
-#include "common/encode.h"
 #include "options/options.h"
 #include "common/common.h"
 #include "osdep/timer.h"
@@ -408,7 +407,9 @@ static void reinit_audio_filters_and_output(struct MPContext *mpctx)
             audio_config_to_str_buf(tmp, sizeof(tmp), ao_rate, ao_format,
                                     ao_channels));
     MP_VERBOSE(mpctx, "AO: Description: %s\n", ao_get_description(mpctx->ao));
-    update_window_title(mpctx, true);
+
+// HISONA ...
+//    update_window_title(mpctx, true);
 
     ao_c->ao_resume_time =
         opts->audio_wait_open > 0 ? mp_time_sec() + opts->audio_wait_open : 0;
@@ -554,10 +555,12 @@ static int write_to_ao(struct MPContext *mpctx, uint8_t **planes, int samples,
     int samplerate;
     int format;
     struct mp_chmap channels;
+
     ao_get_format(ao, &samplerate, &format, &channels);
-    encode_lavc_set_audio_pts(mpctx->encode_lavc_ctx, playing_audio_pts(mpctx));
+
     if (samples == 0)
         return 0;
+
     double real_samplerate = samplerate / mpctx->audio_speed;
     int played = ao_play(mpctx->ao, (void **)planes, samples, flags);
     assert(played <= samples);
@@ -813,7 +816,6 @@ void fill_audio_out_buffers(struct MPContext *mpctx)
             mpctx->audio_status = STATUS_EOF;
             MP_VERBOSE(mpctx, "audio EOF without any data\n");
             mp_filter_reset(ao_c->filter->f);
-            encode_lavc_stream_eof(mpctx->encode_lavc_ctx, STREAM_AUDIO);
         }
         return; // try again next iteration
     }
@@ -997,7 +999,6 @@ void fill_audio_out_buffers(struct MPContext *mpctx)
             if (!was_eof) {
                 MP_VERBOSE(mpctx, "audio EOF reached\n");
                 mp_wakeup_core(mpctx);
-                encode_lavc_stream_eof(mpctx->encode_lavc_ctx, STREAM_AUDIO);
             }
         }
     }

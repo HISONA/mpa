@@ -35,12 +35,7 @@
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
-#include <libswscale/swscale.h>
 #include <libavfilter/avfilter.h>
-
-#if HAVE_LIBAVDEVICE
-#include <libavdevice/avdevice.h>
-#endif
 
 #if HAVE_LIBAV
 #include <libavresample/avresample.h>
@@ -58,7 +53,7 @@
 // callback.
 static pthread_mutex_t log_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct mpv_global *log_mpv_instance;
-static struct mp_log *log_root, *log_decaudio, *log_decvideo, *log_demuxer;
+static struct mp_log *log_root, *log_decaudio, *log_demuxer;
 static bool log_print_prefix = true;
 
 static int av_log_level_to_mp_level(int av_level)
@@ -95,9 +90,6 @@ static struct mp_log *get_av_log(void *ptr)
             if (s->codec->type == AVMEDIA_TYPE_AUDIO) {
                 if (av_codec_is_decoder(s->codec))
                     return log_decaudio;
-            } else if (s->codec->type == AVMEDIA_TYPE_VIDEO) {
-                if (av_codec_is_decoder(s->codec))
-                    return log_decvideo;
             }
         }
     }
@@ -111,8 +103,7 @@ static struct mp_log *get_av_log(void *ptr)
     return log_root;
 }
 
-static void mp_msg_av_log_callback(void *ptr, int level, const char *fmt,
-                                   va_list vl)
+static void mp_msg_av_log_callback(void *ptr, int level, const char *fmt, va_list vl)
 {
     AVClass *avc = ptr ? *(AVClass **)ptr : NULL;
     int mp_level = av_log_level_to_mp_level(level);
@@ -153,7 +144,6 @@ void init_libav(struct mpv_global *global)
         log_mpv_instance = global;
         log_root = mp_log_new(NULL, global->log, LIB_PREFIX);
         log_decaudio = mp_log_new(log_root, log_root, "audio");
-        log_decvideo = mp_log_new(log_root, log_root, "video");
         log_demuxer = mp_log_new(log_root, log_root, "demuxer");
         av_log_set_callback(mp_msg_av_log_callback);
     }
@@ -161,9 +151,6 @@ void init_libav(struct mpv_global *global)
 
     avformat_network_init();
 
-#if HAVE_LIBAVDEVICE
-    avdevice_register_all();
-#endif
 }
 
 void uninit_libav(struct mpv_global *global)
@@ -191,7 +178,6 @@ bool print_libav_versions(struct mp_log *log, int v)
         {"libavutil",     LIBAVUTIL_VERSION_INT,     avutil_version()},
         {"libavcodec",    LIBAVCODEC_VERSION_INT,    avcodec_version()},
         {"libavformat",   LIBAVFORMAT_VERSION_INT,   avformat_version()},
-        {"libswscale",    LIBSWSCALE_VERSION_INT,    swscale_version()},
         {"libavfilter",   LIBAVFILTER_VERSION_INT,   avfilter_version()},
 #if HAVE_LIBAV
         {"libavresample", LIBAVRESAMPLE_VERSION_INT, avresample_version()},

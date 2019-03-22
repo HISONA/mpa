@@ -34,14 +34,14 @@ static void path_init(void)
     char *xdg_dir = getenv("XDG_CONFIG_HOME");
 
     if (xdg_dir && xdg_dir[0]) {
-        snprintf(mpv_home, sizeof(mpv_home), "%s/mpv", xdg_dir);
+        snprintf(mpv_home, sizeof(mpv_home), "%s/mpa", xdg_dir);
     } else if (home && home[0]) {
-        snprintf(mpv_home, sizeof(mpv_home), "%s/.config/mpv", home);
+        snprintf(mpv_home, sizeof(mpv_home), "%s/.config/mpa", home);
     }
 
-    // Maintain compatibility with old ~/.mpv
+    // Maintain compatibility with old ~/.mpa
     if (home && home[0])
-        snprintf(old_home, sizeof(old_home), "%s/.mpv", home);
+        snprintf(old_home, sizeof(old_home), "%s/.mpa", home);
 
     // If the old ~/.mpv exists, and the XDG config dir doesn't, use the old
     // config dir only.
@@ -59,7 +59,7 @@ const char *mp_get_platform_path_unix(void *talloc_ctx, const char *type)
     if (strcmp(type, "old_home") == 0)
         return old_home;
     if (strcmp(type, "global") == 0)
-        return MPV_CONFDIR;
+        return MPA_CONFDIR;
     if (strcmp(type, "desktop") == 0)
         return getenv("HOME");
     return NULL;

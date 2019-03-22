@@ -38,6 +38,7 @@
 #include "audio/aframe.h"
 #include "audio/format.h"
 #include "common/common.h"
+#include "common/msg.h"
 #include "filters/f_autoconvert.h"
 #include "filters/filter_internal.h"
 #include "filters/user_filters.h"

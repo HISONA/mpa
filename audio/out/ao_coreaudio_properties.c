@@ -21,7 +21,7 @@
 
 #include "audio/out/ao_coreaudio_properties.h"
 #include "audio/out/ao_coreaudio_utils.h"
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 
 OSStatus ca_get(AudioObjectID id, ca_scope scope, ca_sel selector,
                 uint32_t size, void *data)

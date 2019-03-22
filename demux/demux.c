@@ -32,10 +32,9 @@
 #include "config.h"
 #include "options/m_config.h"
 #include "options/m_option.h"
-#include "mpv_talloc.h"
+#include "mpa_talloc.h"
 #include "common/msg.h"
 #include "common/global.h"
-#include "common/recorder.h"
 #include "misc/thread_tools.h"
 #include "osdep/atomic.h"
 #include "osdep/timer.h"
@@ -48,18 +47,9 @@
 #include "cue.h"
 
 // Demuxer list
-extern const struct demuxer_desc demuxer_desc_edl;
-extern const struct demuxer_desc demuxer_desc_cue;
 extern const demuxer_desc_t demuxer_desc_rawaudio;
-extern const demuxer_desc_t demuxer_desc_rawvideo;
-extern const demuxer_desc_t demuxer_desc_tv;
-extern const demuxer_desc_t demuxer_desc_mf;
-extern const demuxer_desc_t demuxer_desc_matroska;
 extern const demuxer_desc_t demuxer_desc_lavf;
 extern const demuxer_desc_t demuxer_desc_playlist;
-extern const demuxer_desc_t demuxer_desc_disc;
-extern const demuxer_desc_t demuxer_desc_rar;
-extern const demuxer_desc_t demuxer_desc_libarchive;
 extern const demuxer_desc_t demuxer_desc_null;
 extern const demuxer_desc_t demuxer_desc_timeline;
 
@@ -68,21 +58,8 @@ extern const demuxer_desc_t demuxer_desc_timeline;
  * libraries and demuxers requiring binary support. */
 
 const demuxer_desc_t *const demuxer_list[] = {
-    &demuxer_desc_disc,
-    &demuxer_desc_edl,
-    &demuxer_desc_cue,
     &demuxer_desc_rawaudio,
-    &demuxer_desc_rawvideo,
-#if HAVE_TV
-    &demuxer_desc_tv,
-#endif
-    &demuxer_desc_matroska,
-#if HAVE_LIBARCHIVE
-    &demuxer_desc_libarchive,
-#endif
-    &demuxer_desc_rar,
     &demuxer_desc_lavf,
-    &demuxer_desc_mf,
     &demuxer_desc_playlist,
     &demuxer_desc_null,
     NULL
@@ -98,7 +75,6 @@ struct demux_opts {
     int access_references;
     int seekable_cache;
     int create_ccs;
-    char *record_file;
 };
 
 #define OPT_BASE_STRUCT struct demux_opts
@@ -120,7 +96,6 @@ const struct m_sub_options demux_conf = {
         OPT_CHOICE("demuxer-seekable-cache", seekable_cache, 0,
                    ({"auto", -1}, {"no", 0}, {"yes", 1})),
         OPT_FLAG("sub-create-cc-track", create_ccs, 0),
-        OPT_STRING("stream-record", record_file, 0),
         {0}
     },
     .size = sizeof(struct demux_opts),
@@ -970,11 +945,6 @@ static void demux_shutdown(struct demux_internal *in)
 {
     struct demuxer *demuxer = in->d_user;
 
-    if (in->recorder) {
-        mp_recorder_destroy(in->recorder);
-        in->recorder = NULL;
-    }
-
     if (demuxer->desc->close)
         demuxer->desc->close(in->d_thread);
     demuxer->priv = NULL;
@@ -1518,33 +1488,6 @@ void demux_add_packet(struct sh_stream *stream, demux_packet_t *dp)
                 in->events |= DEMUX_EVENT_DURATION;
                 in->duration = duration;
             }
-        }
-    }
-
-    // (should preferable be outside of the lock)
-    if (in->enable_recording && !in->recorder &&
-        in->opts->record_file && in->opts->record_file[0])
-    {
-        // Later failures shouldn't make it retry and overwrite the previously
-        // recorded file.
-        in->enable_recording = false;
-
-        in->recorder =
-            mp_recorder_create(in->d_thread->global, in->opts->record_file,
-                               in->streams, in->num_streams);
-        if (!in->recorder)
-            MP_ERR(in, "Disabling recording.\n");
-    }
-
-    if (in->recorder) {
-        struct mp_recorder_sink *sink =
-            mp_recorder_get_sink(in->recorder, dp->stream);
-        if (sink) {
-            mp_recorder_feed_packet(sink, dp);
-        } else {
-            MP_ERR(in, "New stream appeared; stopping recording.\n");
-            mp_recorder_destroy(in->recorder);
-            in->recorder = NULL;
         }
     }
 

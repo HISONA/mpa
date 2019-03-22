@@ -3,7 +3,6 @@
 #include "common/common.h"
 #include "common/global.h"
 #include "common/msg.h"
-#include "video/hwdec.h"
 
 #include "filter.h"
 #include "filter_internal.h"
@@ -585,27 +584,6 @@ bool mp_filter_command(struct mp_filter *f, struct mp_filter_command *cmd)
     return f->in->info->command ? f->in->info->command(f, cmd) : false;
 }
 
-struct mp_stream_info *mp_filter_find_stream_info(struct mp_filter *f)
-{
-    while (f) {
-        if (f->stream_info)
-            return f->stream_info;
-        f = f->in->parent;
-    }
-    return NULL;
-}
-
-struct AVBufferRef *mp_filter_load_hwdec_device(struct mp_filter *f, int avtype)
-{
-    struct mp_stream_info *info = mp_filter_find_stream_info(f);
-    if (!info || !info->hwdec_devs)
-        return NULL;
-
-    hwdec_devices_request_all(info->hwdec_devs);
-
-    return hwdec_devices_get_lavc(info->hwdec_devs, avtype);
-}
-
 static void filter_wakeup(struct mp_filter *f, bool mark_only)
 {
     struct filter_runner *r = f->in->runner;
@@ -626,11 +604,6 @@ static void filter_wakeup(struct mp_filter *f, bool mark_only)
 void mp_filter_wakeup(struct mp_filter *f)
 {
     filter_wakeup(f, false);
-}
-
-void mp_filter_mark_async_progress(struct mp_filter *f)
-{
-    filter_wakeup(f, true);
 }
 
 void mp_filter_free_children(struct mp_filter *f)

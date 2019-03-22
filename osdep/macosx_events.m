@@ -25,13 +25,11 @@
 #import <IOKit/hidsystem/ev_keymap.h>
 #import <Cocoa/Cocoa.h>
 
-#include "mpv_talloc.h"
-#include "input/event.h"
+#include "mpa_talloc.h"
 #include "input/input.h"
 #include "player/client.h"
 #include "input/keycodes.h"
 // doesn't make much sense, but needed to access keymap functionality
-#include "video/out/vo.h"
 
 #include "osdep/macosx_compat.h"
 #import "osdep/macosx_events_objc.h"

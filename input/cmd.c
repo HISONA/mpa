@@ -26,7 +26,7 @@
 #include "cmd.h"
 #include "input.h"
 
-#include "libmpv/client.h"
+#include "libmpa/client.h"
 
 static void destroy_cmd(void *ptr)
 {
@@ -88,7 +88,9 @@ static bool find_cmd(struct mp_log *log, struct mp_cmd *cmd, bstr name)
             return true;
         }
     }
+
     mp_err(log, "Command '%.*s' not found.\n", BSTR_P(name));
+
     return false;
 }
 

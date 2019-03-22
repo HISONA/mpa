@@ -25,17 +25,7 @@
 #include <assert.h>
 
 #include "config.h"
-
 #include "common/msg.h"
-
-#if HAVE_UCHARDET
-#include <uchardet.h>
-#endif
-
-#if HAVE_ICONV
-#include <iconv.h>
-#endif
-
 #include "charset_conv.h"
 
 bool mp_charset_is_utf8(const char *user_cp)
@@ -62,35 +52,6 @@ static const char *ms_bom_guess(bstr buf)
     }
     return NULL;
 }
-
-#if HAVE_UCHARDET
-static const char *mp_uchardet(void *talloc_ctx, struct mp_log *log, bstr buf)
-{
-    uchardet_t det = uchardet_new();
-    if (!det)
-        return NULL;
-    if (uchardet_handle_data(det, buf.start, buf.len) != 0) {
-        uchardet_delete(det);
-        return NULL;
-    }
-    uchardet_data_end(det);
-    char *res = talloc_strdup(talloc_ctx, uchardet_get_charset(det));
-    if (res && !res[0])
-        res = NULL;
-    if (res) {
-        mp_verbose(log, "libuchardet detected charset as %s\n", res);
-        iconv_t icdsc = iconv_open("UTF-8", res);
-        if (icdsc == (iconv_t)(-1)) {
-            mp_warn(log, "Charset '%s' not supported by iconv.\n", res);
-            res = NULL;
-        } else {
-            iconv_close(icdsc);
-        }
-    }
-    uchardet_delete(det);
-    return res;
-}
-#endif
 
 // Runs charset auto-detection on the input buffer, and returns the result.
 // If auto-detection fails, NULL is returned.
@@ -132,9 +93,6 @@ const char *mp_charset_guess(void *talloc_ctx, struct mp_log *log,  bstr buf,
 
     const char *res = NULL;
     if (strcasecmp(user_cp, "auto") == 0) {
-#if HAVE_UCHARDET
-        res = mp_uchardet(talloc_ctx, log, buf);
-#endif
         if (!res) {
             mp_verbose(log, "Charset auto-detection failed.\n");
             res = "UTF-8-BROKEN";
@@ -160,80 +118,6 @@ const char *mp_charset_guess(void *talloc_ctx, struct mp_log *log,  bstr buf,
 //  returns: buf (no conversion), .start==NULL (error), or allocated buffer
 bstr mp_iconv_to_utf8(struct mp_log *log, bstr buf, const char *cp, int flags)
 {
-#if HAVE_ICONV
-    if (!cp || !cp[0] || mp_charset_is_utf8(cp))
-        return buf;
-
-    if (strcasecmp(cp, "ASCII") == 0)
-        return buf;
-
-    if (strcasecmp(cp, "UTF-8-BROKEN") == 0)
-        return bstr_sanitize_utf8_latin1(NULL, buf);
-
-    // Force CP949 over EUC-KR since iconv distinguishes them and
-    // EUC-KR causes error on CP949 encoded data
-    if (strcasecmp(cp, "EUC-KR") == 0)
-      cp = "CP949";
-
-    iconv_t icdsc;
-    if ((icdsc = iconv_open("UTF-8", cp)) == (iconv_t) (-1)) {
-        if (flags & MP_ICONV_VERBOSE)
-            mp_err(log, "Error opening iconv with codepage '%s'\n", cp);
-        goto failure;
-    }
-
-    size_t size = buf.len;
-    size_t osize = size;
-    size_t ileft = size;
-    size_t oleft = size - 1;
-
-    char *outbuf = talloc_size(NULL, osize);
-    char *ip = buf.start;
-    char *op = outbuf;
-
-    while (1) {
-        int clear = 0;
-        size_t rc;
-        if (ileft)
-            rc = iconv(icdsc, &ip, &ileft, &op, &oleft);
-        else {
-            clear = 1; // clear the conversion state and leave
-            rc = iconv(icdsc, NULL, NULL, &op, &oleft);
-        }
-        if (rc == (size_t) (-1)) {
-            if (errno == E2BIG) {
-                size_t offset = op - outbuf;
-                outbuf = talloc_realloc_size(NULL, outbuf, osize + size);
-                op = outbuf + offset;
-                osize += size;
-                oleft += size;
-            } else {
-                if (errno == EINVAL && (flags & MP_ICONV_ALLOW_CUTOFF)) {
-                    // This is intended for cases where the input buffer is cut
-                    // at a random byte position. If this happens in the middle
-                    // of the buffer, it should still be an error. We say it's
-                    // fine if the error is within 10 bytes of the end.
-                    if (ileft <= 10)
-                        break;
-                }
-                if (flags & MP_ICONV_VERBOSE) {
-                    mp_err(log, "Error recoding text with codepage '%s'\n", cp);
-                }
-                talloc_free(outbuf);
-                iconv_close(icdsc);
-                goto failure;
-            }
-        } else if (clear)
-            break;
-    }
-
-    iconv_close(icdsc);
-
-    outbuf[osize - oleft - 1] = 0;
-    return (bstr){outbuf, osize - oleft - 1};
-#endif
-
-failure:
     if (flags & MP_NO_LATIN1_FALLBACK) {
         return buf;
     } else {

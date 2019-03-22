@@ -1,9 +1,12 @@
 #include <libavutil/frame.h>
 
 #include "audio/aframe.h"
+#include "ta/ta_talloc.h"
+#include "common/msg.h"
+#include "common/common.h"
 #include "common/av_common.h"
 #include "demux/packet.h"
-#include "video/mp_image.h"
+//#include "video/mp_image.h"
 
 #include "frame.h"
 
@@ -18,31 +21,6 @@ struct frame_handler {
     void *(*from_av_ref)(AVFrame *data);
     void (*free)(void *data);
 };
-
-static void *video_ref(void *data)
-{
-    return mp_image_new_ref(data);
-}
-
-static double video_get_pts(void *data)
-{
-    return ((struct mp_image *)data)->pts;
-}
-
-static void video_set_pts(void *data, double pts)
-{
-    ((struct mp_image *)data)->pts = pts;
-}
-
-static AVFrame *video_new_av_ref(void *data)
-{
-    return mp_image_to_av_frame(data);
-}
-
-static void *video_from_av_ref(AVFrame *data)
-{
-    return mp_image_from_av_frame(data);
-}
 
 static void *audio_ref(void *data)
 {
@@ -85,12 +63,12 @@ static const struct frame_handler frame_handlers[] = {
     [MP_FRAME_VIDEO] = {
         .name = "video",
         .is_data = true,
-        .new_ref = video_ref,
-        .get_pts = video_get_pts,
-        .set_pts = video_set_pts,
-        .new_av_ref = video_new_av_ref,
-        .from_av_ref = video_from_av_ref,
-        .free = talloc_free,
+        .new_ref = NULL,
+        .get_pts = NULL,
+        .set_pts = NULL,
+        .new_av_ref = NULL,
+        .from_av_ref = NULL,
+        .free = NULL,
     },
     [MP_FRAME_AUDIO] = {
         .name = "audio",

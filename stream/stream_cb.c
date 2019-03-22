@@ -16,7 +16,7 @@
 #include "options/m_option.h"
 #include "options/path.h"
 #include "player/client.h"
-#include "libmpv/stream_cb.h"
+#include "libmpa/stream_cb.h"
 
 struct priv {
     mpv_stream_cb_info info;

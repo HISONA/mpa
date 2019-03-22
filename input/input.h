@@ -92,29 +92,10 @@ void mp_input_put_key_artificial(struct input_ctx *ictx, int code);
 // string as key events.
 void mp_input_put_key_utf8(struct input_ctx *ictx, int mods, struct bstr t);
 
-// Process scrolling input. Support for precise scrolling. Scales the given
-// scroll amount add multiplies it with the command (seeking, sub-delay, etc)
-void mp_input_put_wheel(struct input_ctx *ictx, int direction, double value);
-
-// Update mouse position (in window coordinates).
-void mp_input_set_mouse_pos(struct input_ctx *ictx, int x, int y);
-
-// Like mp_input_set_mouse_pos(), but ignore mouse disable option.
-void mp_input_set_mouse_pos_artificial(struct input_ctx *ictx, int x, int y);
-
-void mp_input_get_mouse_pos(struct input_ctx *ictx, int *x, int *y);
-
-// Return whether we want/accept mouse input.
-bool mp_input_mouse_enabled(struct input_ctx *ictx);
-
-bool mp_input_vo_keyboard_enabled(struct input_ctx *ictx);
-
 /* Make mp_input_set_mouse_pos() mangle the mouse coordinates. Hack for certain
  * VOs. dst=NULL, src=NULL reset it. src can be NULL.
  */
 struct mp_rect;
-void mp_input_set_mouse_transform(struct input_ctx *ictx, struct mp_rect *dst,
-                                  struct mp_rect *src);
 
 // Add a command to the command queue.
 int mp_input_queue_cmd(struct input_ctx *ictx, struct mp_cmd *cmd);
@@ -138,9 +119,6 @@ void mp_input_enable_section(struct input_ctx *ictx, char *name, int flags);
 // name==NULL will behave as if name=="default"
 void mp_input_disable_section(struct input_ctx *ictx, char *name);
 
-// Like mp_input_set_section(ictx, ..., 0) for all sections.
-void mp_input_disable_all_sections(struct input_ctx *ictx);
-
 // Set the contents of an input section.
 //  name: name of the section, for mp_input_set_section() etc.
 //  location: location string (like filename) for error reporting
@@ -157,22 +135,6 @@ void mp_input_define_section(struct input_ctx *ictx, char *name, char *location,
 // Remove all sections that have been defined by the given owner.
 void mp_input_remove_sections_by_owner(struct input_ctx *ictx, char *owner);
 
-// Define where on the screen the named input section should receive.
-// Setting a rectangle of size 0 unsets the mouse area.
-// A rectangle with negative size disables mouse input for this section.
-void mp_input_set_section_mouse_area(struct input_ctx *ictx, char *name,
-                                     int x0, int y0, int x1, int y1);
-
-// Used to detect mouse movement.
-unsigned int mp_input_get_mouse_event_counter(struct input_ctx *ictx);
-
-// Test whether there is any input section which wants to receive events.
-// Note that the mouse event is always delivered, even if this returns false.
-bool mp_input_test_mouse_active(struct input_ctx *ictx, int x, int y);
-
-// Whether input.c wants mouse drag events at this mouse position. If this
-// returns false, some VOs will initiate window dragging.
-bool mp_input_test_dragging(struct input_ctx *ictx, int x, int y);
 
 // Initialize the input system
 struct mpv_global;
@@ -196,14 +158,6 @@ void mp_input_wakeup(struct input_ctx *ictx);
 // If this returns true, use Right Alt key as Alt Gr to produce special
 // characters. If false, count Right Alt as the modifier Alt key.
 bool mp_input_use_alt_gr(struct input_ctx *ictx);
-
-// Return true if mpv should intercept keyboard media keys
-bool mp_input_use_media_keys(struct input_ctx *ictx);
-
-// Like mp_input_parse_cmd_strv, but also run the command.
-void mp_input_run_cmd(struct input_ctx *ictx, const char **cmd);
-
-void mp_input_set_repeat_info(struct input_ctx *ictx, int rate, int delay);
 
 void mp_input_pipe_add(struct input_ctx *ictx, const char *filename);
 

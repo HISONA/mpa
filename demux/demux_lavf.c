@@ -660,72 +660,10 @@ static void handle_new_stream(demuxer_t *demuxer, int i)
 
         break;
     }
-    case AVMEDIA_TYPE_VIDEO: {
-        sh = demux_alloc_sh_stream(STREAM_VIDEO);
-
-        if ((st->disposition & AV_DISPOSITION_ATTACHED_PIC) &&
-            !(st->disposition & AV_DISPOSITION_TIMED_THUMBNAILS))
-        {
-            sh->attached_picture =
-                new_demux_packet_from_avpacket(&st->attached_pic);
-            if (sh->attached_picture) {
-                sh->attached_picture->pts = 0;
-                talloc_steal(sh, sh->attached_picture);
-                sh->attached_picture->keyframe = true;
-            }
-        }
-
-        sh->codec->disp_w = codec->width;
-        sh->codec->disp_h = codec->height;
-        if (st->avg_frame_rate.num)
-            sh->codec->fps = av_q2d(st->avg_frame_rate);
-        if (priv->format_hack.image_format)
-            sh->codec->fps = priv->mf_fps;
-        sh->codec->par_w = st->sample_aspect_ratio.num;
-        sh->codec->par_h = st->sample_aspect_ratio.den;
-
-        uint8_t *sd = av_stream_get_side_data(st, AV_PKT_DATA_DISPLAYMATRIX, NULL);
-        if (sd) {
-            double r = av_display_rotation_get((uint32_t *)sd);
-            if (!isnan(r))
-                sh->codec->rotate = (((int)(-r) % 360) + 360) % 360;
-        }
-
-        sd = av_stream_get_side_data(st, AV_PKT_DATA_SPHERICAL, NULL);
-        if (sd) {
-            AVSphericalMapping *sp = (void *)sd;
-            struct mp_spherical_params *mpsp = &sh->codec->spherical;
-            mpsp->type = sp->projection == AV_SPHERICAL_EQUIRECTANGULAR ?
-                            MP_SPHERICAL_EQUIRECTANGULAR : MP_SPHERICAL_UNKNOWN;
-            mpsp->ref_angles[0] = sp->yaw / (float)(1 << 16);
-            mpsp->ref_angles[1] = sp->pitch / (float)(1 << 16);
-            mpsp->ref_angles[2] = sp->roll / (float)(1 << 16);
-        }
-
-        // This also applies to vfw-muxed mkv, but we can't detect these easily.
-        sh->codec->avi_dts = matches_avinputformat_name(priv, "avi");
-
+    case AVMEDIA_TYPE_VIDEO:
         break;
-    }
-    case AVMEDIA_TYPE_SUBTITLE: {
-        sh = demux_alloc_sh_stream(STREAM_SUB);
-
-        if (codec->extradata_size) {
-            sh->codec->extradata = talloc_size(sh, codec->extradata_size);
-            memcpy(sh->codec->extradata, codec->extradata, codec->extradata_size);
-            sh->codec->extradata_size = codec->extradata_size;
-        }
-
-        if (matches_avinputformat_name(priv, "microdvd")) {
-            AVRational r;
-            if (av_opt_get_q(avfc, "subfps", AV_OPT_SEARCH_CHILDREN, &r) >= 0) {
-                // File headers don't have a FPS set.
-                if (r.num < 1 || r.den < 1)
-                    sh->codec->frame_based = 23.976; // default timebase
-            }
-        }
+    case AVMEDIA_TYPE_SUBTITLE:
         break;
-    }
     case AVMEDIA_TYPE_ATTACHMENT: {
         AVDictionaryEntry *ftag = av_dict_get(st->metadata, "filename", NULL, 0);
         char *filename = ftag ? ftag->value : NULL;
