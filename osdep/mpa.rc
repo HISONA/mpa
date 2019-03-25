@@ -33,7 +33,7 @@ VS_VERSION_INFO VERSIONINFO
                 VALUE "CompanyName", "mpa"
                 VALUE "FileDescription", "mpa"
                 VALUE "FileVersion", VERSION
-                VALUE "LegalCopyright", MPVCOPYRIGHT
+                VALUE "LegalCopyright", MPACOPYRIGHT
                 VALUE "OriginalFilename", "mpa.exe"
                 VALUE "ProductName", "mpa"
                 VALUE "ProductVersion", VERSION
